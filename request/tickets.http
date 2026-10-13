@@ -1,0 +1,15 @@
+@baseUrl = http://localhost:5000
+@studentId = 6acebb483f9ca1ee1b1f6c56
+@roomId = 6acebb483f9ca1ee1b1f6c5b
+
+### Create ticket
+POST {{baseUrl}}/api/v1/tickets
+Content-Type: application/json
+
+{
+  "title": "Leaking tap in room B12",
+  "description": "The bathroom tap has been dripping since Monday.",
+  "category": "plumbing",
+  "room": "{{roomId}}",
+  "reportedBy": "{{studentId}}"
+}

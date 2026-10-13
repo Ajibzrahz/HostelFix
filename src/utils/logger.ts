@@ -6,8 +6,7 @@ const log = logger({
   base: {
     pid: false,
   },
-  timestamp: () =>
-    `,"time":"${dayjs().format("{YYYY} MM-DDTHH:mm:ss SSS [Z] A")}"`,
+  timestamp: () => `,"time":"${dayjs().format("YYYY-MM-DD[T]HH:mm:ss.SSS")}"`,
 });
 
 export default log;
