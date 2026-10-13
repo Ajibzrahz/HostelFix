@@ -67,8 +67,8 @@ The full spec (request and response bodies, status codes) is in [`/docs`](./docs
 ### Setup
 
 ```bash
-git clone <repo-url>
-cd <repo-folder>
+git clone https://github.com/Ajibzrahz/HostelFix.git
+cd HostelFix
 npm install
 cp .env.example .env
 ```
@@ -132,7 +132,6 @@ Bugs found, options considered and how each was resolved.
 
 ## Limitations
 
-*(filled in as the project grows)*
 
 ## Author
 

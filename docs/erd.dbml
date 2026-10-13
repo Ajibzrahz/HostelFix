@@ -1,0 +1,55 @@
+Table users {
+  id objectid [pk]
+  name string [not null]
+  email string [unique, not null]
+  passwordHash string [not null]
+  role enum [note: 'student | staff | admin']
+  createdAt date
+}
+
+Table hostels {
+  id objectid [pk]
+  name string [unique, not null]
+  location string
+}
+
+Table rooms {
+  id objectid [pk]
+  hostel objectid [ref: > hostels.id]
+  roomNumber string [not null]
+  floor int
+  indexes { (hostel, roomNumber) [unique] }
+}
+
+Table tickets {
+  id objectid [pk]
+  title string [not null]
+  description string [not null]
+  category enum [note: 'plumbing | electrical | furniture | other']
+  priority enum [note: 'low | medium | high | urgent']
+  status enum [note: 'open | assigned | in_progress | resolved']
+  room objectid [ref: > rooms.id]
+  reportedBy objectid [ref: > users.id]
+  assignedTo objectid [ref: > users.id, note: 'nullable']
+  isRecurring boolean
+  createdAt date
+  updatedAt date
+  resolvedAt date [note: 'nullable']
+}
+
+Table ticket_comments {
+  ticket objectid [ref: > tickets.id]
+  author objectid [ref: > users.id]
+  body string
+  createdAt date
+  Note: 'EMBEDDED in ticket'
+}
+
+Table ticket_status_history {
+  ticket objectid [ref: > tickets.id]
+  from enum
+  to enum
+  changedBy objectid [ref: > users.id]
+  changedAt date
+  Note: 'EMBEDDED in ticket'
+}
