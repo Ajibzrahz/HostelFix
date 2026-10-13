@@ -8,7 +8,7 @@ const env = {
   jwtSecret: process.env.JWT_SECRET || "",
   accessTokenSecret: process.env.ACCESS_TOKEN_SECRET || "",
   refreshTokenSecret: process.env.REFRESH_TOKEN_SECRET || "",
-  accessTokenTtl: Number(process.env.ACCESS_TOKEN_TTL) || 900, // 15 minutes in seconds
+  accessTokenTtl: Number(process.env.ACCESS_TOKEN_TTL) || 900,
   refreshTokenTtl: Number(process.env.REFRESH_TOKEN_TTL) || 604800,
 };
 
