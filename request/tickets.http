@@ -1,6 +1,6 @@
 @baseUrl = http://localhost:5000
-@studentId = 6acebb483f9ca1ee1b1f6c56
-@roomId = 6acebb483f9ca1ee1b1f6c5b
+@studentId = 6acff8cb7399957e0ebd0363
+@roomId = 6acff8cb7399957e0ebd0368
 
 ### Create ticket
 POST {{baseUrl}}/api/v1/tickets

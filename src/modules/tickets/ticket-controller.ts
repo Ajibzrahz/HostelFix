@@ -6,3 +6,8 @@ export const createTicketHandler = async (req: Request, res: Response) => {
   const ticket = await TicketService.createTicket(req.body);
   return res.status(StatusCodes.CREATED).json(ticket);
 };
+
+export const getTicketHandler = async (req: Request, res: Response) => {
+  const ticket = await TicketService.getTicket(String(req.params.id));
+  return res.status(StatusCodes.CREATED).json(ticket);
+};

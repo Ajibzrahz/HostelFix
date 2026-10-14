@@ -1,27 +1,10 @@
-import { ZodError, type ZodObject } from "zod";
-import type { Response, Request, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
+import type { ZodType } from "zod";
 
 const validate =
-  (schema: ZodObject) => (req: Request, res: Response, next: NextFunction) => {
-    try {
-      schema.parse({
-        body: req.body,
-        query: req.query,
-        params: req.params,
-      });
-      next();
-    } catch (error) {
-      if (error instanceof ZodError) {
-        return res.status(400).json({
-          message: "Validation failed",
-          errors: error.issues.map((issue) => ({
-            field: issue.path.join("."),
-            message: issue.message,
-          })),
-        });
-      }
-      next(error);
-    }
+  (schema: ZodType) => (req: Request, _res: Response, next: NextFunction) => {
+    req.body = schema.parse(req.body); // throws ZodError, handled by errorHandler
+    next();
   };
 
 export default validate;

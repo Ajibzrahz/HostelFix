@@ -4,13 +4,14 @@ import Room from "../rooms/room-model";
 import User from "../users/user-model";
 import Ticket from "./ticket-model";
 import type { CreateTicketInput } from "./ticket-schema";
+import mongoose from "mongoose";
 
 export const createTicket = async (data: CreateTicketInput) => {
-    const roomExist = await Room.exists({ _id: data.room })
+  const roomExist = await Room.exists({ _id: data.room });
   if (!roomExist) {
     throw new AppError(404, "ROOM_NOT_FOUND", "Room not found");
   }
-  const user = await User.exists({ _id: data.reportedBy })
+  const user = await User.exists({ _id: data.reportedBy });
   if (!user) {
     throw new AppError(404, "USER_NOT_FOUND", "Reporting user not found");
   }
@@ -36,4 +37,15 @@ export const createTicket = async (data: CreateTicketInput) => {
       },
     ],
   });
+};
+
+export const getTicket = async (id: string) => {
+  if (!mongoose.isObjectIdOrHexString(id)) {
+    throw new AppError(400, "INVALID_ID", "Invalid ticket ID");
+  }
+  const ticket = await Ticket.findById(id);
+  if (!ticket) {
+    throw new AppError(404, "NOT_FOUND", "Ticket not found");
+  }
+  return ticket;
 };
