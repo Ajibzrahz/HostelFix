@@ -109,3 +109,15 @@ export const updateTicket = async (id: string, data: UpdateTicketInput) => {
   }
   return ticket;
 };
+
+export const deleteTicket = async (id: string) => {
+  assertValidId(id);
+
+  const ticket = await Ticket.findByIdAndDelete(id)
+
+  if (!ticket) {
+    throw new AppError(StatusCodes.NOT_FOUND, "NOT_FOUND", "Ticket not found");
+
+  }
+  return ticket;
+};

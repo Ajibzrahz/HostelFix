@@ -25,3 +25,9 @@ export const updateTicketHandler = async (req: Request, res: Response) => {
   const ticket = await ticketService.updateTicket(String(ticketId), req.body);
   return res.status(StatusCodes.OK).json(ticket);
 };
+
+export const deleteTicketHandler = async (req: Request, res: Response) => {
+  const ticketId = req.params.id;
+  const ticket = await ticketService.deleteTicket(String(ticketId));
+  return res.status(StatusCodes.NO_CONTENT).send();
+};
