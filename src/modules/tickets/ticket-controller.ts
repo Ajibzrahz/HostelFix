@@ -13,10 +13,15 @@ export const getTicketHandler = async (req: Request, res: Response) => {
   return res.status(StatusCodes.CREATED).json(ticket);
 };
 
-
 export const listTicketsHandler = async (_req: Request, res: Response) => {
   const result = await ticketService.listTickets(
     res.locals.query as ListTicketsQuery,
   );
   res.status(StatusCodes.OK).json(result);
+};
+
+export const updateTicketHandler = async (req: Request, res: Response) => {
+  const ticketId = req.params.id;
+  const ticket = await ticketService.updateTicket(String(ticketId), req.body);
+  return res.status(StatusCodes.OK).json(ticket);
 };

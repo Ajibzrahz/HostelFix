@@ -25,3 +25,16 @@ export const listTicketsQuerySchema = z.strictObject({
 });
 
 export type ListTicketsQuery = z.infer<typeof listTicketsQuerySchema>;
+
+export const updateTicketSchema = z
+  .strictObject({
+    title: z.string().trim().min(3).max(100).optional(),
+    description: z.string().trim().min(10).max(1000).optional(),
+    category: z.enum(CATEGORIES).optional(),
+    priority: z.enum(PRIORITIES).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "Provide at least one field to update",
+  });
+
+export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;

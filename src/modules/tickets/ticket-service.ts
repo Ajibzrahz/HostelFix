@@ -3,17 +3,40 @@ import { AppError } from "../../utils/app-error";
 import Room from "../rooms/room-model";
 import User from "../users/user-model";
 import Ticket from "./ticket-model";
-import type { CreateTicketInput, ListTicketsQuery } from "./ticket-schema";
-import mongoose, { QueryFilter } from "mongoose";
+import type {
+  CreateTicketInput,
+  ListTicketsQuery,
+  UpdateTicketInput,
+} from "./ticket-schema";
+import mongoose, { QueryFilter, UpdateQuery } from "mongoose";
+import { StatusCodes } from "http-status-codes";
+
+const assertValidId = (id: string) => {
+  if (!mongoose.isObjectIdOrHexString(id)) {
+    throw new AppError(
+      StatusCodes.BAD_REQUEST,
+      "INVALID_ID",
+      "Invalid ticket ID",
+    );
+  }
+};
 
 export const createTicket = async (data: CreateTicketInput) => {
   const roomExist = await Room.exists({ _id: data.room });
   if (!roomExist) {
-    throw new AppError(404, "ROOM_NOT_FOUND", "Room not found");
+    throw new AppError(
+      StatusCodes.NOT_FOUND,
+      "ROOM_NOT_FOUND",
+      "Room not found",
+    );
   }
   const user = await User.exists({ _id: data.reportedBy });
   if (!user) {
-    throw new AppError(404, "USER_NOT_FOUND", "Reporting user not found");
+    throw new AppError(
+      StatusCodes.NOT_FOUND,
+      "USER_NOT_FOUND",
+      "Reporting user not found",
+    );
   }
 
   // recurring = same room already has a ticket of the same category in the last 30 days
@@ -40,12 +63,10 @@ export const createTicket = async (data: CreateTicketInput) => {
 };
 
 export const getTicket = async (id: string) => {
-  if (!mongoose.isObjectIdOrHexString(id)) {
-    throw new AppError(400, "INVALID_ID", "Invalid ticket ID");
-  }
+  assertValidId(id);
   const ticket = await Ticket.findById(id);
   if (!ticket) {
-    throw new AppError(404, "NOT_FOUND", "Ticket not found");
+    throw new AppError(StatusCodes.NOT_FOUND, "NOT_FOUND", "Ticket not found");
   }
   return ticket;
 };
@@ -71,4 +92,20 @@ export const listTickets = async (query: ListTicketsQuery) => {
   ]);
 
   return { data, page, limit, total, totalPages: Math.ceil(total / limit) };
+};
+
+export const updateTicket = async (id: string, data: UpdateTicketInput) => {
+  assertValidId(id);
+
+  const ticket = await Ticket.findByIdAndUpdate(
+    id,
+    { $set: data },
+    { returnDocument: "after", runValidators: true },
+  );
+
+  if (!ticket) {
+    throw new AppError(StatusCodes.NOT_FOUND, "NOT_FOUND", "Ticket not found");
+
+  }
+  return ticket;
 };
