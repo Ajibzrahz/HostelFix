@@ -1,0 +1,193 @@
+{
+  "info": {
+    "_postman_id": "416ac909-5de4-4f59-aaee-55f08e32dbab",
+    "name": "HostelFix",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "45367995",
+    "_collection_link": "https://go.postman.co/collection/45367995-416ac909-5de4-4f59-aaee-55f08e32dbab?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "createTicket",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"201 Created\", () => pm.response.to.have.status(201));\r\npm.environment.set(\"ticketId\", pm.response.json().id);\r\n"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "   {\r\n     \"title\": \"Leaking tap in room B12\",\r\n     \"description\": \"The bathroom tap has been dripping since Monday.\",\r\n     \"category\": \"plumbing\",\r\n     \"room\": \"{{roomId}}\",\r\n     \"reportedBy\": \"{{studentId}}\"\r\n   }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/tickets/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "tickets",
+            ""
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "getTicket",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/tickets/{{ticketId}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "tickets",
+            "{{ticketId}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "listTickets",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/v1/tickets/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "tickets",
+            ""
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "updateTicket",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"priority\": \"low\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/tickets/{{ticketId}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "tickets",
+            "{{ticketId}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "deleteTicket",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{ \"title\": \"Broken socket in B12\", \"category\": \"electrical\" }",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/tickets/{{ticketId}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "tickets",
+            "{{ticketId}}"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}

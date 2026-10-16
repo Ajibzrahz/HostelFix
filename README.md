@@ -120,7 +120,8 @@ This clears the database and creates dummy users, a hostel, rooms and tickets. I
 
 ### Sample requests
 
-Ready-made requests are in [`/request`](./request): a Postman collection and environment. Import both into Postman, set `baseUrl`, and paste a room ID and a student user ID from the seed output into `roomId` and `studentId`.
+
+Import all three files from /request into Postman (the collection and the two environments). Select an environment, then replace `<paste-id-from-seed>` in `studentId` and `roomId` with a student user ID and a room ID from the `npm run seed` output. Run the collection in order: it creates a ticket, saves its ID automatically, and uses it for the get, update and delete requests.
 
 ### Test
 
@@ -130,7 +131,7 @@ npm test
 
 ## Live API
 
-- **Base URL:** *(added after deploy)*
+- **Base URL:** *https://hostelfix-l7hd.onrender.com*
 - The API runs on a free host and may take up to a minute to wake up on the first request.
 
 ## Project structure
