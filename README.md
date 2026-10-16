@@ -2,7 +2,7 @@
 
 A backend API for reporting and tracking hostel maintenance issues.
 
-> **Status:** Week 1 of the BuildLab Talent Accelerator (Stage 1, Back-End track). This README grows each week. Anything not marked as done is planned, not built.
+> **Status:** Week 1 of the BuildLab Talent Accelerator (Stage 1, Back-End track). The ticket CRUD endpoints are built. Authentication, roles and status transitions come in Week 2. This README grows each week, and anything not marked as done is planned, not built.
 
 ## The problem
 
@@ -40,7 +40,9 @@ Every status change is recorded with who made it and when. Tickets have a priori
 
 Entities: **User**, **Hostel**, **Room**, **Ticket** (with embedded comments and status history).
 
-The full ERD and field list are in [`/docs`](./docs) *(added during Week 1)*.
+![ERD](./docs/erd.png)
+
+The ERD source is in [`/docs`](./docs), next to the full API spec.
 
 ## API overview
 
@@ -48,12 +50,25 @@ Base path: `/api/v1`
 
 | Method | Path | Purpose | Status |
 | --- | --- | --- | --- |
-| GET | `/health` | Service health check | Planned |
-| POST | `/tickets` | Create a ticket | Planned |
-| GET | `/tickets` | List tickets (paginated, filterable) | Planned |
-| GET | `/tickets/:id` | Get one ticket | Planned |
-| PATCH | `/tickets/:id` | Update a ticket | Planned |
-| DELETE | `/tickets/:id` | Delete a ticket | Planned |
+| GET | `/health` | Service health check | Done |
+| POST | `/api/v1/tickets` | Create a ticket | Done |
+| GET | `/api/v1/tickets` | List tickets (paginated, filterable, sortable) | Done |
+| GET | `/api/v1/tickets/:id` | Get one ticket | Done |
+| PATCH | `/api/v1/tickets/:id` | Update a ticket's details | Done |
+| DELETE | `/api/v1/tickets/:id` | Delete a ticket | Done |
+| POST | `/api/v1/auth/register`, `/api/v1/auth/login` | Sign up and log in | Week 2 |
+| PATCH | `/api/v1/tickets/:id/status`, `/assign` | Status changes and assignment | Week 2 |
+| POST | `/api/v1/tickets/:id/comments` | Add a comment | Week 2 |
+
+**List query parameters:** `page` (default 1), `limit` (default 10, max 50), `status`, `priority`, `category`, `room`, `sort` (`createdAt` or `-createdAt`).
+
+**Errors** always use one format:
+
+```json
+{ "error": { "code": "VALIDATION_ERROR", "message": "Request validation failed", "details": [] } }
+```
+
+**Week 1 note:** there is no authentication yet, so `reportedBy` is sent in the request body as a temporary stand-in. In Week 2 it is taken from the logged-in user.
 
 The full spec (request and response bodies, status codes) is in [`/docs`](./docs).
 
@@ -67,8 +82,8 @@ The full spec (request and response bodies, status codes) is in [`/docs`](./docs
 ### Setup
 
 ```bash
-git clone https://github.com/Ajibzrahz/HostelFix.git
-cd HostelFix
+git clone <repo-url>
+cd <repo-folder>
 npm install
 cp .env.example .env
 ```
@@ -95,6 +110,18 @@ npm run build   # compile TypeScript to dist/
 npm start       # run the compiled build
 ```
 
+### Seed sample data
+
+```bash
+npm run seed
+```
+
+This clears the database and creates dummy users, a hostel, rooms and tickets. It prints the user and room IDs, which you need for the sample requests. It refuses to run when `NODE_ENV=production`. Seeded accounts are for testing only and use dummy data.
+
+### Sample requests
+
+Ready-made requests are in [`/request`](./request): a Postman collection and environment. Import both into Postman, set `baseUrl`, and paste a room ID and a student user ID from the seed output into `roomId` and `studentId`.
+
 ### Test
 
 ```bash
@@ -110,7 +137,12 @@ npm test
 
 ```
 docs/        design documents (one-pager, work plan, ERD, API spec)
-src/         application code
+request/     Postman collection and environment
+src/
+  config/      environment and database setup
+  middleware/  validation, error handler, not-found handler
+  modules/     tickets, users, hostels, rooms
+  utils/       logger and AppError
 tests/       automated tests
 ```
 
