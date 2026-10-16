@@ -297,6 +297,10 @@ const run = async () => {
   console.log(`Sample ticket: ${created[created.length - 1]._id}`);
 
   await mongoose.disconnect();
+
+  console.log(
+    `Database: ${mongoose.connection.name} on ${mongoose.connection.host}`,
+  );
 };
 
 run().catch(async (err) => {
