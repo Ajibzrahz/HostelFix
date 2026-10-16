@@ -28,8 +28,10 @@ Every error uses this shape:
 | 400 | `INVALID_ID` | A path ID is not a valid ObjectId |
 | 401 | `UNAUTHORIZED` | Missing or invalid token (W2) |
 | 403 | `FORBIDDEN` | Logged in but not allowed (W2) |
-| 404 | `NOT_FOUND` | Ticket does not exist |
+| 404 | `NOT_FOUND` | Ticket does not exist, or the route does not exist |
 | 404 | `ROOM_NOT_FOUND` | Referenced room does not exist |
+| 404 | `USER_NOT_FOUND` | Referenced user does not exist |
+| 409 | `CONFLICT` | A unique value already exists (for example a duplicate email) |
 | 409 | `INVALID_TRANSITION` | Illegal status change (W2) |
 | 500 | `INTERNAL_ERROR` | Unexpected failure, generic message only |
 
@@ -128,7 +130,7 @@ Required: `title`, `description`, `category`, `room` (and `reportedBy` in W1 onl
 
 - **201:** the created ticket object, with `status: "open"` and the first `statusHistory` entry.
 - **400** `VALIDATION_ERROR` or `INVALID_ID`
-- **404** `ROOM_NOT_FOUND`
+- **404** `ROOM_NOT_FOUND` or `USER_NOT_FOUND`
 
 ---
 
@@ -147,10 +149,11 @@ Lists tickets, newest first.
 | `priority` | enum | Filter by priority |
 | `category` | enum | Filter by category |
 | `room` | ObjectId | Filter by room |
-| `sort` | string | `createdAt` or `-createdAt` (default), `priority` |
+| `sort` | string | `createdAt` (oldest first) or `-createdAt` (newest first, default) |
 
 - **200:** paginated list, as in the Pagination section above. Each item is a ticket object.
-- **400** `VALIDATION_ERROR` for an invalid filter value, `page` or `limit`
+- **400** `VALIDATION_ERROR` for an invalid filter value, `page`, `limit` or `sort`, or an unknown query parameter
+- A `page` beyond the last page returns 200 with an empty `data` array and the correct `total`.
 
 ---
 
@@ -229,3 +232,9 @@ open → assigned → in_progress → resolved
 - **Server-controlled fields:** `status`, `isRecurring` and timestamps are set by the server so clients cannot fake them.
 - **`reportedBy` in the W1 body:** a temporary stand-in until authentication exists. It is replaced by the logged-in user in Week 2.
 - **Single error format:** one shape for every error makes the API predictable for front-end developers.
+- **Hard delete:** deleting a ticket removes it permanently. This keeps Week 1 simple. A production system might keep resolved tickets for an audit trail.
+- **`isRecurring` is decided at creation:** it is not recalculated when a ticket's category is edited.
+- **Offset pagination:** `page` and `limit` are simple and fit the expected data size. Cursor-based pagination would suit much larger data sets.
+- **Stable ordering:** list results sort by `createdAt` with `_id` as a tiebreaker, so a ticket cannot appear on two pages or be skipped.
+- **Unknown fields are rejected:** request bodies and query strings are validated strictly, so clients cannot send fields the server controls.
+- **`id` instead of `_id`:** responses expose `id` and omit MongoDB's internal `__v`.
