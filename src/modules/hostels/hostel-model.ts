@@ -5,10 +5,23 @@ export interface HostelDocument extends Document {
   location: string;
 }
 
-const hostelSchema = new Schema<HostelDocument>({
-  name: { type: String, required: true, unique: true, trim: true },
-  location: { type: String, trim: true },
-});
+const hostelSchema = new Schema<HostelDocument>(
+  {
+    name: { type: String, required: true, unique: true, trim: true },
+    location: { type: String, trim: true },
+  },
+  { 
+    timestamps: true,
+    toJSON: {
+      versionKey: false,
+      transform: (_doc, ret: Record<string, unknown>) => {
+        ret.id = ret._id
+        delete ret._id
+        return ret
+      }
+    }
+  },
+);
 
 const Hostel = model<HostelDocument>("Hostel", hostelSchema);
 export default Hostel;
