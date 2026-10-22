@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import { AppError } from "../../utils/app-error";
+import { AppError } from "../../common/utils/app-error";
 import Room from "../rooms/room-model";
 import User from "../users/user-model";
 import Ticket from "./ticket-model";
@@ -8,18 +8,8 @@ import type {
   ListTicketsQuery,
   UpdateTicketInput,
 } from "./ticket-schema";
-import mongoose, { QueryFilter, UpdateQuery } from "mongoose";
+import mongoose from "mongoose";
 import { StatusCodes } from "http-status-codes";
-
-const assertValidId = (id: string) => {
-  if (!mongoose.isObjectIdOrHexString(id)) {
-    throw new AppError(
-      StatusCodes.BAD_REQUEST,
-      "INVALID_ID",
-      "Invalid ticket ID",
-    );
-  }
-};
 
 export const createTicket = async (data: CreateTicketInput) => {
   const roomExist = await Room.exists({ _id: data.room });
@@ -63,7 +53,6 @@ export const createTicket = async (data: CreateTicketInput) => {
 };
 
 export const getTicket = async (id: string) => {
-  assertValidId(id);
   const ticket = await Ticket.findById(id);
   if (!ticket) {
     throw new AppError(StatusCodes.NOT_FOUND, "NOT_FOUND", "Ticket not found");
@@ -94,9 +83,10 @@ export const listTickets = async (query: ListTicketsQuery) => {
   return { data, page, limit, total, totalPages: Math.ceil(total / limit) };
 };
 
-export const updateTicket = async (id: string, data: UpdateTicketInput) => {
-  assertValidId(id);
-
+export const updateTicket = async (
+  id: string,
+  data: UpdateTicketInput["body"],
+) => {
   const ticket = await Ticket.findByIdAndUpdate(
     id,
     { $set: data },
@@ -105,19 +95,15 @@ export const updateTicket = async (id: string, data: UpdateTicketInput) => {
 
   if (!ticket) {
     throw new AppError(StatusCodes.NOT_FOUND, "NOT_FOUND", "Ticket not found");
-
   }
   return ticket;
 };
 
 export const deleteTicket = async (id: string) => {
-  assertValidId(id);
-
-  const ticket = await Ticket.findByIdAndDelete(id)
+  const ticket = await Ticket.findByIdAndDelete(id);
 
   if (!ticket) {
     throw new AppError(StatusCodes.NOT_FOUND, "NOT_FOUND", "Ticket not found");
-
   }
   return ticket;
 };

@@ -2,8 +2,8 @@ import type { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import { ZodError } from "zod";
 import { StatusCodes } from "http-status-codes";
-import logger from "../utils/logger";
-import { AppError } from "../utils/app-error";
+import logger from "../common/utils/logger";
+import { AppError } from "../common/utils/app-error";
 
 type DuplicateKeyError = { code: 11000; keyValue: Record<string, unknown> };
 

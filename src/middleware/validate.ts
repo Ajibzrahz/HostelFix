@@ -1,14 +1,18 @@
 import type { Request, Response, NextFunction } from "express";
 import type { ZodType } from "zod";
 
-export const validateBody =
-  (schema: ZodType) => (req: Request, _res: Response, next: NextFunction) => {
-    req.body = schema.parse(req.body); // throws ZodError, handled by errorHandler
+const validate =
+  (schema: ZodType) => (req: Request, res: Response, next: NextFunction) => {
+    const parsed = schema.parse({
+      body: req.body,
+      query: req.query,
+      params: req.params,
+    }) as { body?: unknown; query?: unknown; params?: unknown };
+
+    req.body = parsed.body ?? req.body;
+    res.locals.query = parsed.query;
+    res.locals.params = parsed.params;
     next();
   };
 
-  export const validateQuery =
-  (schema: ZodType) => (req: Request, res: Response, next: NextFunction) => {
-    res.locals.query = schema.parse(req.query);
-    next();
-  };
+export default validate;

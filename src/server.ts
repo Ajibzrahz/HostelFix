@@ -1,7 +1,7 @@
 import app from "./app";
 import env from "./config/env";
 import connectDB from "./config/database";
-import logger from "./utils/logger";
+import logger from "./common/utils/logger";
 const PORT = env.port;
 
 const startServer = async () => {

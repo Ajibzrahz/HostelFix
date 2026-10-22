@@ -7,6 +7,13 @@ Table users {
   createdAt date
 }
 
+Table sessions {
+  id objectid [pk]
+  user objectid [ref: >  users.id, not null]
+  valid boolean
+  userAgent string
+}
+
 Table hostels {
   id objectid [pk]
   name string [unique, not null]
@@ -15,7 +22,7 @@ Table hostels {
 
 Table rooms {
   id objectid [pk]
-  hostel objectid [ref: > hostels.id]
+  hostel objectid [ref: > hostels.id, not null]
   roomNumber string [not null]
   floor int
   indexes { (hostel, roomNumber) [unique] }
@@ -27,29 +34,30 @@ Table tickets {
   description string [not null]
   category enum [note: 'plumbing | electrical | furniture | other']
   priority enum [note: 'low | medium | high | urgent']
-  status enum [note: 'open | assigned | in_progress | resolved']
-  room objectid [ref: > rooms.id]
-  reportedBy objectid [ref: > users.id]
-  assignedTo objectid [ref: > users.id, note: 'nullable']
+  status enum [note: 'open | assigned | in_progress | resolved | closed']
+  room objectid [ref: > rooms.id, not null]
+  reportedBy objectid [ref: > users.id, not null]
+  assignedTo objectid [ref: > users.id, note: 'nullable', not null]
   isRecurring boolean
   createdAt date
   updatedAt date
   resolvedAt date [note: 'nullable']
+  confirmed date [note: 'nullable']
 }
 
 Table ticket_comments {
-  ticket objectid [ref: > tickets.id]
-  author objectid [ref: > users.id]
+  ticket objectid [ref: > tickets.id, not null]
+  author objectid [ref: > users.id, not null]
   body string
   createdAt date
   Note: 'EMBEDDED in ticket'
 }
 
 Table ticket_status_history {
-  ticket objectid [ref: > tickets.id]
+  ticket objectid [ref: > tickets.id, not null]
   from enum
   to enum
-  changedBy objectid [ref: > users.id]
+  changedBy objectid [ref: > users.id, not null]
   changedAt date
   Note: 'EMBEDDED in ticket'
 }

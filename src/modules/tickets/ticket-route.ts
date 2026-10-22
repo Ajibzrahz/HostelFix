@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { validateBody, validateQuery } from "../../middleware/validate";
+import validate from "../../middleware/validate";
 import {
   createTicketSchema,
   listTicketsQuerySchema,
+  ticketIdSchema,
   updateTicketSchema,
 } from "./ticket-schema";
 import {
@@ -15,10 +16,10 @@ import {
 
 const router = Router();
 
-router.post("/", validateBody(createTicketSchema), createTicketHandler);
-router.get("/:id", getTicketHandler);
-router.get("/", validateQuery(listTicketsQuerySchema), listTicketsHandler);
-router.patch("/:id", validateBody(updateTicketSchema), updateTicketHandler);
-router.delete("/:id", deleteTicketHandler);
+router.post("/", validate(createTicketSchema), createTicketHandler);
+router.get("/:id", validate(ticketIdSchema), getTicketHandler);
+router.get("/", validate(listTicketsQuerySchema), listTicketsHandler);
+router.patch("/:id", validate(updateTicketSchema), updateTicketHandler);
+router.delete("/:id", validate(ticketIdSchema), deleteTicketHandler);
 
 export default router;

@@ -6,4 +6,4 @@ const hostelSchema = new Schema({
 });
 
 const Hostel = model("Hostel", hostelSchema);
-export default Hostel
+export default Hostel;

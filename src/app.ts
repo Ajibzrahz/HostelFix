@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 
 import cookieParser from "cookie-parser";
-import routes from "./routes";
+import routes from "./common/routes";
 import notFound from "./middleware/notFound";
 import errorHandler from "./middleware/errorHandler";
 
@@ -18,12 +18,11 @@ app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok", uptime: process.uptime() });
 });
 
-
 // Route
 app.use("/api/v1", routes);
 
-app.use(notFound)
-app.use(errorHandler)
+app.use(notFound);
+app.use(errorHandler);
 
 // Health check
 app.get("/", (_req, res) => {
