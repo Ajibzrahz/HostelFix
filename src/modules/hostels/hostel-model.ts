@@ -1,9 +1,14 @@
-import { Schema, model } from "mongoose";
+import { Document, Schema, model } from "mongoose";
 
-const hostelSchema = new Schema({
+export interface HostelDocument extends Document {
+  name: string;
+  location: string;
+}
+
+const hostelSchema = new Schema<HostelDocument>({
   name: { type: String, required: true, unique: true, trim: true },
   location: { type: String, trim: true },
 });
 
-const Hostel = model("Hostel", hostelSchema);
+const Hostel = model<HostelDocument>("Hostel", hostelSchema);
 export default Hostel;

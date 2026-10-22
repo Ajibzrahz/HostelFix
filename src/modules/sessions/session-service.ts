@@ -44,15 +44,15 @@ export async function reIssueAccessToken({
   if (!user) return false;
 
   const accessToken = signJwt(
-    {
-      ...omit(user.toJSON(), ["password"]),
-      session: session._id,
-    },
+    { sub: user._id.toString(), role: user.role, session: sessionId },
     env.accessTokenSecret,
-    {
-      expiresIn: env.accessTokenTtl,
-    },
+    { expiresIn: env.accessTokenTtl },
   );
 
   return accessToken;
+}
+
+export async function isSessionValid(sessionId: string) {
+  const session = await sessionModel.findById(sessionId);
+  return !!session && session.valid;
 }
