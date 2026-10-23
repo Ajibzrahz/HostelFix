@@ -10,10 +10,16 @@ import {
 } from "./hostel-schema";
 import {
   createHostelHandler,
+  deleteHostelHandler,
   getHostelHandler,
   listHostelsHandler,
   updateHostelHandler,
 } from "./hostel-controller";
+import {
+  createRoomHandler,
+  listHostelRoomsHandler,
+} from "../rooms/room-controller";
+import { createRoomSchema, listHostelRoomsSchema } from "../rooms/room-schema";
 
 const router = Router();
 
@@ -23,6 +29,12 @@ router.get(
   requireUser,
   validate(hostelIdSchema),
   getHostelHandler,
+);
+router.get(
+  "/:hostelId/rooms",
+  requireUser,
+  validate(listHostelRoomsSchema),
+  listHostelRoomsHandler,
 );
 router.post(
   "/",
@@ -35,6 +47,20 @@ router.patch(
   requireRole("admin"),
   validate(updateHostelSchema),
   updateHostelHandler,
+);
+router.delete(
+  "/:hostelId",
+  requireRole("admin"),
+  validate(hostelIdSchema),
+  deleteHostelHandler,
+);
+
+//create room
+router.post(
+  "/:hostelId/rooms",
+  requireRole("admin", "staff"),
+  validate(createRoomSchema),
+  createRoomHandler,
 );
 
 export default router;

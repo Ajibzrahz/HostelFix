@@ -10,7 +10,6 @@ const router = Router();
 router.get("/:userId", getUserHandler);
 router.patch(
   "/:userId",
-  deserializeUser,
   requireUser,
   validate(updateUserSchema),
   updateUserHandler,

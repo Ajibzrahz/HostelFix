@@ -26,6 +26,6 @@ router.post(
   resendVerificationHandler,
 );
 router.post("/login", validate(loginSchema), loginHandler);
-router.delete("/logout", deserializeUser, requireUser, logoutHandler);
+router.delete("/logout", requireUser, logoutHandler);
 
 export default router;

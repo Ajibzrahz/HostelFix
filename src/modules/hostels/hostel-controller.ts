@@ -35,7 +35,7 @@ export const updateHostelHandler = async (
   return res.status(StatusCodes.OK).json(hostels);
 };
 
-// export const deleteHostelHandler = async (_req: Request, res: Response) => {
-//   await hostelService.deleteHostel(String(res.locals.params.id));
-//   return res.status(StatusCodes.NO_CONTENT).send();
-// };
+export const deleteHostelHandler = async (_req: Request, res: Response) => {
+  await hostelService.deleteHostel(String(res.locals.params.hostelId));
+  return res.status(StatusCodes.NO_CONTENT).send();
+};

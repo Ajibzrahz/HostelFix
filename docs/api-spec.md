@@ -31,8 +31,11 @@ Every error uses this shape:
 | 404 | `NOT_FOUND` | Ticket does not exist, or the route does not exist |
 | 404 | `ROOM_NOT_FOUND` | Referenced room does not exist |
 | 404 | `USER_NOT_FOUND` | Referenced user does not exist |
+| 404 | `HOSTEL_NOT_FOUND` | Referenced hostel does not exist |
 | 409 | `CONFLICT` | A unique value already exists (for example a duplicate email) |
 | 409 | `INVALID_TRANSITION` | Illegal status change (W2) |
+| 409 | `HOSTEL_HAS_ROOMS` | Referenced hostel has a rooms |
+| 409 | `ROOM_HAS_TICKETS` | Referenced room has a ticket |
 | 500 | `INTERNAL_ERROR` | Unexpected failure, generic message only |
 
 ### Pagination

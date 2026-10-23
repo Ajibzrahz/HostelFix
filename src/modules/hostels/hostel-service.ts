@@ -6,6 +6,7 @@ import {
   ListHostelsQuery,
   UpdateHostelInput,
 } from "./hostel-schema";
+import Room from "../rooms/room-model";
 
 export async function createHostel(data: CreateHostelInput) {
   if (await Hostel.exists({ name: data.name })) {
@@ -56,16 +57,16 @@ export async function updateHostel(id: string, data: UpdateHostelInput["body"]) 
   return hostel;
 }
 
-// export async function deleteHostel(id: string) {
-//   if (await Room.exists({ hostel: id })) {
-//     throw new AppError(
-//       StatusCodes.CONFLICT,
-//       "HOSTEL_HAS_ROOMS",
-//       "Cannot delete a hostel that still has rooms",
-//     );
-//   }
-//   const hostel = await Hostel.findByIdAndDelete(id);
-//   if (!hostel) {
-//     throw new AppError(StatusCodes.NOT_FOUND, "NOT_FOUND", "Hostel not found");
-//   }
-// }
+export async function deleteHostel(hostelId: string) {
+  if (await Room.exists({ hostel: hostelId })) {
+    throw new AppError(
+      StatusCodes.CONFLICT,
+      "HOSTEL_HAS_ROOMS",
+      "Cannot delete a hostel that still has rooms",
+    );
+  }
+  const hostel = await Hostel.findByIdAndDelete(hostelId);
+  if (!hostel) {
+    throw new AppError(StatusCodes.NOT_FOUND, "NOT_FOUND", "Hostel not found");
+  }
+}
