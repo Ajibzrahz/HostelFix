@@ -42,7 +42,7 @@ Table tickets {
   createdAt date
   updatedAt date
   resolvedAt date [note: 'nullable']
-  confirmed date [note: 'nullable']
+  confirmedAt date [note: 'nullable']
 }
 
 Table ticket_comments {
