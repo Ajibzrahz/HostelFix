@@ -9,7 +9,6 @@ export const createTicketSchema = z.object({
     category: z.enum(CATEGORIES),
     priority: z.enum(PRIORITIES).default("medium"),
     room: objectId,
-    reportedBy: objectId, // TEMP: removed in Week 2, taken from the logged-in user
   }),
 });
 

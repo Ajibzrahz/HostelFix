@@ -12,6 +12,7 @@ export const STATUSES = [
   "assigned",
   "in_progress",
   "resolved",
+  "closed"
 ] as const;
 
 const commentSchema = new Schema(
