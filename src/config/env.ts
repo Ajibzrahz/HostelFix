@@ -18,7 +18,7 @@ const env = {
   mailtrapPass: process.env.MAILTRAP_PASS || "",
 
   brevoApiKey: process.env.BREVO_API_KEY || "",
-  emailProvider: process.env.EMAIL_PROVIDER || "mailtrap",
+  emailProvider: (process.env.EMAIL_PROVIDER || "mailtrap").trim().toLocaleLowerCase(),
 
   clientUrl: process.env.CLIENT_URL || "http://localhost:3000",
   serverUrl: process.env.SERVER_URL || "http://localhost:5000"

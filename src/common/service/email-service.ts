@@ -87,9 +87,12 @@ const extractSenderName = (mailFrom: string): string => {
 };
 
 export const sendEmail = async (options: SendEmailOptions) => {
-  if (env.emailProvider === "brevo") {
-    return sendWithBrevoApi(options);
+  switch (env.emailProvider) {
+    case "brevo":
+      return sendWithBrevoApi(options);
+    case "mailtrap":
+      return sendWithMailtrap(options);
+    default:
+      throw new Error(`Unknown EMAIL_PROVIDER: ${env.emailProvider}`);
   }
-
-  return sendWithMailtrap(options);
 };
