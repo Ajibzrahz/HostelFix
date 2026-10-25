@@ -4,7 +4,7 @@ A backend API for reporting and tracking hostel maintenance issues.
 
 **Live API:** https://hostelfix-l7hd.onrender.com (free host, so the first request after a quiet period can take up to a minute)
 
-> **Status:** Core ticket CRUD, authentication, roles, ownership checks, hostels and rooms are built. Status transitions, assignment, comments and the duplicate-report check are designed in the [API spec](./docs/api-spec.md) and planned next. Anything not marked **Done** is planned, not built.
+> **Status:** The ticket lifecycle is built: tickets, authentication with email verification, roles and ownership checks, hostels and rooms, assignment, status changes with a student confirm-or-reopen step, comments and a duplicate-report check. Automated tests and rate limiting are planned next. Anything not marked **Done** is planned, not built.
 
 ## The problem
 
@@ -24,7 +24,7 @@ Each report is a **ticket** that moves through a lifecycle:
 
 `open` → `assigned` → `in_progress` → `resolved` → `closed`
 
-Staff mark a ticket resolved, and the student who reported it confirms the fix (closed) or reopens it. Every status change is recorded with who made it and when. Repeated issues in the same room are flagged so staff can spot recurring faults. The status flow is planned, and today tickets are created, listed, viewed, edited and deleted under the access rules below.
+Staff mark a ticket resolved, and the student who reported it confirms the fix (closed) or reopens it. Every status change is recorded with who made it and when. Repeated issues in the same room are flagged so staff can spot recurring faults. A new report is rejected if the same room already has an unresolved ticket in the same category, so one fault does not need ten tickets.
 
 ## Tech stack
 
@@ -49,6 +49,12 @@ Entities: **User**, **Session**, **Hostel**, **Room**, **Ticket** (with embedded
 
 The ERD source is in [`/docs`](./docs), next to the full API spec.
 
+## Architecture
+
+![Architecture](./docs/hostelfix-architecture.png)
+
+A layered monolith. A request passes through auth and validation middleware, then routes and controllers, then services (business rules), then Mongoose models. Every error from any layer goes to one global error handler that returns the standard error format.
+
 ## Authentication and access
 
 - Register, then verify your email through the link that is sent, then log in. Login sets `accessToken` and `refreshToken` cookies, and an expired access token is renewed from the refresh token. Logging out invalidates the session.
@@ -61,6 +67,10 @@ The ERD source is in [`/docs`](./docs), next to the full API spec.
 | List and view tickets | own only | all | all |
 | Edit ticket details | own, while `open` | all | all |
 | Delete a ticket | no | no | yes |
+| Assign a ticket | no | yes | yes |
+| Move a ticket to in progress or resolved | no | yes | yes |
+| Confirm or reopen a resolved ticket | own tickets | no | yes |
+| Comment on a ticket | own tickets | all | all |
 | Hostels (create, edit, delete) | no | no | yes |
 | Rooms (create, edit, delete) | no | yes | yes |
 | Read hostels and rooms | yes | yes | yes |
@@ -76,7 +86,7 @@ Base path: `/api/v1`. The full spec, with request bodies, responses and status c
 | Tickets | `POST /tickets`, `GET /tickets`, `GET /tickets/:id`, `PATCH /tickets/:id`, `DELETE /tickets/:id` | Done |
 | Hostels | `GET /hostels`, `GET /hostels/:id`, `POST /hostels`, `PATCH /hostels/:id`, `DELETE /hostels/:id` | Done |
 | Rooms | `GET /rooms`, `GET /rooms/:roomId`, `PATCH /rooms/:roomId`, `DELETE /rooms/:roomId`, `GET` and `POST /hostels/:hostelId/rooms` | Done |
-| Ticket workflow | `PATCH /tickets/:id/assign`, `PATCH /tickets/:id/status`, `POST /tickets/:id/comments` | Planned |
+| Ticket workflow | `PATCH /tickets/:id/assign`, `PATCH /tickets/:id/status`, `POST /tickets/:id/comments` | Done |
 
 **Ticket list query parameters:** `page` (default 1), `limit` (default 10, max 50), `status`, `priority`, `category`, `room`, `sort` (`createdAt` or `-createdAt`).
 
@@ -114,7 +124,7 @@ On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp`. Then o
 | `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET` | Long random strings used to sign tokens |
 | `ACCESS_TOKEN_TTL`, `REFRESH_TOKEN_TTL` | Token lifetimes in seconds (defaults 900 and 604800) |
 | `EMAIL_PROVIDER` | `mailtrap` (default) or `brevo` |
-| `MAIL_FROM` | Sender, for example `HostelFix <no-reply@example.com>` |
+| `MAIL_FROM` | Sender in the form `HostelFix <you@yourdomain.com>`. The address must be verified with the email provider |
 | `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USER`, `MAILTRAP_PASS` | Mailtrap SMTP settings (development) |
 | `BREVO_API_KEY` | Brevo API key (when `EMAIL_PROVIDER=brevo`) |
 | `SERVER_URL` | Public URL of this API, used in verification links |
@@ -186,9 +196,14 @@ Bugs found, options considered and how each was resolved.
 | 6 | Registration returned an error after the account had been created | Reproduced with a failing email provider | The email send was awaited and its failure bubbled up, and retrying gave 409. Email failures are now caught and logged, and a resend endpoint exists |
 | 7 | Ticket filters were ignored in the list endpoint | Printed the filter object | The student restriction overwrote the whole filter. Added it to the existing filter instead |
 | 8 | Login risked accepting any password and leaking the hash in tokens | Reviewed the login handler | `comparePassword` is async and needs `await`, and the token payload omitted the wrong field name. Awaited the comparison and put only the user ID, role and session ID in tokens |
+| 9 | Verification emails never arrived, although the app logged success | Checked the app logs, then the email provider's delivery log | The provider accepted the request, then rejected the sending because `MAIL_FROM` still held a placeholder address. Verified a real sender and set `MAIL_FROM` on the host |
+| 10 | A student could report a fault again after staff had started working on it | Reviewed the duplicate check | It only looked for `open` tickets. It now checks open, assigned and in progress tickets |
 
 ## Limitations
 
+- Two reports submitted at the same instant could both pass the duplicate check.
+- Comments cannot be edited or deleted.
+- Verification emails sent from a free personal address can land in spam, so a verified domain is better for real use.
 - There are no automated tests yet, and no rate limiting on login or email endpoints.
 - Cookies use `sameSite=strict`, so a front end on a different site would need this relaxed.
 - The free host sleeps when idle, so the first request can be slow.
