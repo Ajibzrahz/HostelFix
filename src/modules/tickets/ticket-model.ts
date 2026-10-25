@@ -12,7 +12,7 @@ export const STATUSES = [
   "assigned",
   "in_progress",
   "resolved",
-  "closed"
+  "closed",
 ] as const;
 
 const commentSchema = new Schema(
@@ -59,6 +59,7 @@ const ticketSchema = new Schema(
     comments: { type: [commentSchema], default: [] },
     statusHistory: { type: [statusChangeSchema], default: [] },
     resolvedAt: { type: Date, default: null },
+    confirmedAt: { type: Date, default: null },
   },
   {
     timestamps: true,

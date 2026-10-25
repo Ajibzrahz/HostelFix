@@ -47,3 +47,25 @@ export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
 export const ticketIdSchema = z.object({
   params: z.object({ id: objectId }),
 });
+
+export const ticketCommentSchema = z.object({
+  params: z.object({ id: objectId }),
+  body: z.strictObject({
+    body: z.string({ error: "body is required" }).trim().min(1).max(500),
+  }),
+});
+export type TicketCommentInput = z.infer<typeof ticketCommentSchema>["body"];
+
+export const assignTicketSchema = z.object({
+  params: z.object({ id: objectId }),
+  body: z.strictObject({ assignedTo: objectId }),
+});
+export type AssignTicketInput = z.infer<typeof assignTicketSchema>["body"];
+
+export const updateStatusSchema = z.object({
+  params: z.object({ id: objectId }),
+  body: z.strictObject({
+    status: z.enum(STATUSES, { error: "A valid status is required" }),
+  }),
+});
+export type UpdateStatusInput = z.infer<typeof updateStatusSchema>["body"];

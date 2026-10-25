@@ -35,6 +35,7 @@ Every error uses this shape:
 | 400 | `VALIDATION_ERROR` | Body, query or path parameters fail validation (including an invalid ID in the path, an unknown field, or an empty update body) |
 | 400 | `INVALID_ID` | A value cannot be read as an ID (a fallback, since validation normally catches this first) |
 | 400 | `INVALID_VERIFICATION_LINK` | Email verification link is wrong or expired |
+| 400 | `INVALID_ASSIGNEE` | A ticket is assigned to someone who is not a staff member or an admin |
 | 401 | `UNAUTHORIZED` | Not logged in, or wrong email or password at login |
 | 403 | `FORBIDDEN` | Logged in but not allowed to do this |
 | 403 | `EMAIL_NOT_VERIFIED` | Correct login, but the email address has not been verified |
@@ -46,8 +47,8 @@ Every error uses this shape:
 | 409 | `HOSTEL_HAS_ROOMS` | Cannot delete a hostel that still has rooms |
 | 409 | `ROOM_HAS_TICKETS` | Cannot delete a room that still has tickets |
 | 409 | `TICKET_LOCKED` | A student tries to edit a ticket after work has started |
-| 409 | `DUPLICATE_TICKET` | An open ticket already exists for this room and category (Planned) |
-| 409 | `INVALID_TRANSITION` | Illegal status change (Planned) |
+| 409 | `DUPLICATE_TICKET` | An unresolved ticket (open, assigned or in progress) already exists for this room and category |
+| 409 | `INVALID_TRANSITION` | Illegal status change, or assigning a resolved or closed ticket |
 | 500 | `INTERNAL_ERROR` | Unexpected failure, generic message only |
 
 ### Pagination
@@ -107,12 +108,12 @@ A `page` beyond the last page returns 200 with an empty `data` array and the cor
 | `status` | enum | `open`, `assigned`, `in_progress`, `resolved`, `closed`. Starts `open`, set by the server |
 | `room` | ObjectId | Must reference an existing room |
 | `reportedBy` | ObjectId | The logged-in user who created the ticket. Set by the server, never sent by the client |
-| `assignedTo` | ObjectId or null | Set only through the assign endpoint (Planned) |
+| `assignedTo` | ObjectId or null | Set only through the assign endpoint |
 | `isRecurring` | boolean | Set by the server: true if the same room already has a ticket of the same category created in the last 30 days |
-| `comments` | array | Embedded: `author`, `body` (max 500 characters), `createdAt` (Planned) |
+| `comments` | array | Embedded: `author`, `body` (max 500 characters), `createdAt` |
 | `statusHistory` | array | Embedded: `from`, `to`, `changedBy`, `changedAt` |
-| `resolvedAt` | date or null | Set when staff marks the ticket resolved (Planned) |
-| `confirmedAt` | date or null | Set when the reporting student confirms the fix (Planned) |
+| `resolvedAt` | date or null | Set when staff mark the ticket resolved, cleared if it is reopened |
+| `confirmedAt` | date or null | Set when the reporting student confirms the fix |
 
 **Hostel:** `id`, `name` (unique), `location`, `createdAt`, `updatedAt`.
 
@@ -130,9 +131,9 @@ A `page` beyond the last page returns 200 with an empty `data` array and the cor
 | Tickets | List and view | own only | all | all |
 | Tickets | Edit details | own, only while `open` | all | all |
 | Tickets | Delete | no | no | yes |
-| Tickets | Assign (Planned) | no | yes | yes |
-| Tickets | Status changes (Planned) | confirm or reopen own resolved ticket | up to `resolved` | all |
-| Tickets | Comment (Planned) | own tickets | all | all |
+| Tickets | Assign | no | yes | yes |
+| Tickets | Status changes | confirm or reopen own resolved ticket | up to `resolved` | all |
+| Tickets | Comment | own tickets | all | all |
 | Hostels | List and view | yes | yes | yes |
 | Hostels | Create, edit, delete | no | no | yes |
 | Rooms | List and view | yes | yes | yes |
@@ -172,12 +173,12 @@ Checks that the service is running. Public.
 {
   "name": "Ada Student",
   "email": "ada@example.com",
-  "passwordHash": "at-least-8-characters",
+  "password": "at-least-8-characters",
   "passwordConfirmation": "at-least-8-characters"
 }
 ```
 
-- All four fields are required. `passwordHash` must be at least 8 characters and match `passwordConfirmation`. The email is lowercased. Unknown fields (including `role`) are rejected.
+- All four fields are required. `password` must be at least 8 characters and match `passwordConfirmation`. The email is lowercased. Unknown fields (including `role`) are rejected.
 - **201:** `{ "message": "...", "user": { ... } }`. A verification link is emailed. If the email provider fails, the account is still created and the message says to request a new link.
 - **400** `VALIDATION_ERROR`
 - **409** `CONFLICT` if the email is already registered
@@ -226,9 +227,9 @@ All ticket endpoints require a logged-in user.
 | GET | `/api/v1/tickets/:id` | Get one ticket | 200 | 400, 401, 403, 404 | Done |
 | PATCH | `/api/v1/tickets/:id` | Edit ticket details | 200 | 400, 401, 403, 404, 409 | Done |
 | DELETE | `/api/v1/tickets/:id` | Delete a ticket (admin) | 204 | 400, 401, 403, 404 | Done |
-| PATCH | `/api/v1/tickets/:id/assign` | Assign a staff member | 200 | 400, 401, 403, 404, 409 | Planned |
-| PATCH | `/api/v1/tickets/:id/status` | Change status | 200 | 400, 401, 403, 404, 409 | Planned |
-| POST | `/api/v1/tickets/:id/comments` | Add a comment | 201 | 400, 401, 403, 404 | Planned |
+| PATCH | `/api/v1/tickets/:id/assign` | Assign a staff member | 200 | 400, 401, 403, 404, 409 | Done |
+| PATCH | `/api/v1/tickets/:id/status` | Change status | 200 | 400, 401, 403, 404, 409 | Done |
+| POST | `/api/v1/tickets/:id/comments` | Add a comment | 201 | 400, 401, 403, 404 | Done |
 
 ### POST `/api/v1/tickets`
 
@@ -245,7 +246,7 @@ All ticket endpoints require a logged-in user.
 - Required: `title`, `description`, `category`, `room`. Optional: `priority`. Unknown fields are rejected, so clients cannot set `reportedBy`, `status`, `assignedTo` or `isRecurring`.
 - **201:** the created ticket, with `status: "open"`, `reportedBy` set to the logged-in user, and the first `statusHistory` entry.
 - **404** `ROOM_NOT_FOUND`
-- **409** `DUPLICATE_TICKET` if an open ticket already exists for the same room and category (Planned)
+- **409** `DUPLICATE_TICKET` if an unresolved ticket (open, assigned or in progress) already exists for the same room and category. Once that ticket is resolved, a new report is allowed and is flagged `isRecurring` if it falls within 30 days.
 
 ### GET `/api/v1/tickets`
 
@@ -282,35 +283,46 @@ Lists tickets, newest first. Students see only their own tickets, staff and admi
 - Admin only. Deletes the ticket permanently.
 - **204:** no body
 
-### PATCH `/api/v1/tickets/:id/assign` (Planned)
+### PATCH `/api/v1/tickets/:id/assign`
 
 ```json
 { "assignedTo": "6710ef00a1b2c3d4e5f60003" }
 ```
 
-- Staff and admin only. The assignee must exist and be a staff member or admin (otherwise 404 `USER_NOT_FOUND` or 400).
-- Assigning an `open` ticket moves it to `assigned` and adds a status history entry. A ticket that is `assigned` or `in_progress` can be reassigned. A `resolved` or `closed` ticket cannot (409 `INVALID_TRANSITION`).
+- Staff and admin only. `assignedTo` must be the ID of an existing staff member or admin.
+- Assigning an `open` ticket moves it to `assigned` and adds a status history entry. A ticket that is `assigned` or `in_progress` can be reassigned without a status change.
+- **200:** the updated ticket
+- **400** `VALIDATION_ERROR`, or `INVALID_ASSIGNEE` if the user is a student
+- **404** `NOT_FOUND` (ticket) or `USER_NOT_FOUND` (assignee)
+- **409** `INVALID_TRANSITION` if the ticket is `resolved` or `closed`
 
-### PATCH `/api/v1/tickets/:id/status` (Planned)
+### PATCH `/api/v1/tickets/:id/status`
 
 ```json
 { "status": "in_progress" }
 ```
 
-- Only the transitions below are allowed. Anything else returns 409 `INVALID_TRANSITION`, and a user who is not allowed to make a valid transition gets 403 `FORBIDDEN`.
+- The client sends only the new status. The server knows the current one.
+- A move that is not in the table below returns 409 `INVALID_TRANSITION`. A listed move by someone who is not allowed to make it returns 403 `FORBIDDEN`. Admins can make any listed move.
 - Every change appends a `statusHistory` entry (`from`, `to`, `changedBy`, `changedAt`).
 
 | From | To | Who | Effect |
 | --- | --- | --- | --- |
-| `open` | `assigned` | staff, admin | Done through the assign endpoint |
+| `open` | `assigned` | staff, admin | Done through the assign endpoint, not this one |
 | `assigned` | `in_progress` | staff, admin | |
 | `in_progress` | `resolved` | staff, admin | Sets `resolvedAt` |
 | `resolved` | `closed` | reporting student, admin | Student confirms the fix. Sets `confirmedAt` |
 | `resolved` | `in_progress` | reporting student, admin | Student reopens it. Clears `resolvedAt` |
 
-A `closed` ticket cannot be changed.
+A `closed` ticket cannot be changed. A student who is not the reporter gets 403.
 
-### POST `/api/v1/tickets/:id/comments` (Planned)
+- **200:** the updated ticket
+- **400** `VALIDATION_ERROR`
+- **403** `FORBIDDEN`
+- **404** `NOT_FOUND`
+- **409** `INVALID_TRANSITION`, also returned if someone else changed the ticket at the same moment
+
+### POST `/api/v1/tickets/:id/comments`
 
 ```json
 { "body": "The plumber came but the leak is still there." }
@@ -318,6 +330,9 @@ A `closed` ticket cannot be changed.
 
 - Allowed for the ticket's reporter, staff and admin. The author is the logged-in user. `body` is required, 1 to 500 characters.
 - **201:** the updated ticket
+- **400** `VALIDATION_ERROR`
+- **403** `FORBIDDEN` for a student commenting on someone else's ticket
+- **404** `NOT_FOUND`
 
 ---
 
@@ -326,10 +341,10 @@ A `closed` ticket cannot be changed.
 | Method | Path | Purpose | Access | Success | Errors | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | GET | `/api/v1/hostels` | List hostels (paginated) | Logged in | 200 | 400, 401 | Done |
-| GET | `/api/v1/hostels/:hostelId` | Get one hostel | Logged in | 200 | 400, 401, 404 | Done |
+| GET | `/api/v1/hostels/:id` | Get one hostel | Logged in | 200 | 400, 401, 404 | Done |
 | POST | `/api/v1/hostels` | Create a hostel | Admin | 201 | 400, 401, 403, 409 | Done |
-| PATCH | `/api/v1/hostels/:hostelId` | Update a hostel | Admin | 200 | 400, 401, 403, 404, 409 | Done |
-| DELETE | `/api/v1/hostels/:hostelId` | Delete a hostel | Admin | 204 | 400, 401, 403, 404, 409 | Done |
+| PATCH | `/api/v1/hostels/:id` | Update a hostel | Admin | 200 | 400, 401, 403, 404, 409 | Done |
+| DELETE | `/api/v1/hostels/:id` | Delete a hostel | Admin | 204 | 400, 401, 403, 404, 409 | Done |
 | GET | `/api/v1/hostels/:hostelId/rooms` | List a hostel's rooms (paginated) | Logged in | 200 | 400, 401, 404 | Done |
 | POST | `/api/v1/hostels/:hostelId/rooms` | Add a room to a hostel | Staff, admin | 201 | 400, 401, 403, 404, 409 | Done |
 
@@ -361,9 +376,10 @@ Deleting a room that still has tickets returns 409 `ROOM_HAS_TICKETS`.
 - **Email verification:** new accounts must verify their email before logging in. Only a hash of the token is stored, and it expires after 15 minutes.
 - **403 for someone else's ticket:** a student who requests another student's ticket gets 403. This confirms the ticket exists, which is acceptable here.
 - **Students cannot edit once work starts:** after a ticket leaves `open`, only staff and admins can change its details.
-- **Assigning moves the ticket to `assigned`:** one step instead of two, so a ticket cannot be assigned without its status reflecting it (Planned).
-- **Two-step closing:** staff mark a ticket `resolved`, and the reporting student confirms (`closed`) or reopens it, so tickets are not closed while the fault is still there (Planned).
-- **Duplicate-report check:** creating a ticket for a room and category that already has an open ticket is rejected, so one fault does not need ten tickets (Planned).
+- **Assigning moves the ticket to `assigned`:** one step instead of two, so a ticket cannot be assigned without its status reflecting it.
+- **Two-step closing:** staff mark a ticket `resolved`, and the reporting student confirms (`closed`) or reopens it, so tickets are not closed while the fault is still there.
+- **Status changes are checked against the current status:** the update only applies if the ticket still has the status it had when it was read, so two people cannot apply conflicting changes at once.
+- **Duplicate-report check:** creating a ticket for a room and category that already has an unresolved ticket is rejected without revealing the other ticket, so one fault does not need ten tickets. Two reports submitted at the same instant could both pass the check, which is acceptable at this scale.
 - **Staff manage rooms, only admins manage hostels:** rooms change often, hostels rarely.
 - **Parents with children cannot be deleted:** a hostel with rooms or a room with tickets returns 409 instead of leaving orphaned records.
 - **One validation step:** every route validates body, query and path parameters together with Zod, and every error goes through one global handler.

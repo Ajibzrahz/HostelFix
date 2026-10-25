@@ -189,7 +189,6 @@ Bugs found, options considered and how each was resolved.
 
 ## Limitations
 
-- Ticket workflow endpoints (assign, status changes, comments) and the duplicate-report check are not built yet.
 - There are no automated tests yet, and no rate limiting on login or email endpoints.
 - Cookies use `sameSite=strict`, so a front end on a different site would need this relaxed.
 - The free host sleeps when idle, so the first request can be slow.

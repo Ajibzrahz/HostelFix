@@ -53,3 +53,33 @@ export const deleteTicketHandler = async (req: Request, res: Response) => {
   await ticketService.deleteTicket(String(ticketId));
   return res.status(StatusCodes.NO_CONTENT).send();
 };
+
+export const ticketCommentHandler = async (req: Request, res: Response) => {
+  const ticket = await ticketService.ticketComment(
+    String(res.locals.params.id),
+    req.body,
+    res.locals.user as Actor,
+  );
+  return res.status(StatusCodes.CREATED).json(ticket);
+};
+
+export const assignTicketHandler = async (req: Request, res: Response) => {
+  const ticket = await ticketService.assignTicket(
+    String(res.locals.params.id),
+    req.body,
+    res.locals.user as Actor,
+  );
+  return res.status(StatusCodes.OK).json(ticket);
+};
+
+export const updateTicketStatusHandler = async (
+  req: Request,
+  res: Response,
+) => {
+  const ticket = await ticketService.updateTicketStatus(
+    String(res.locals.params.id),
+    req.body,
+    res.locals.user as Actor,
+  );
+  return res.status(StatusCodes.OK).json(ticket);
+};
