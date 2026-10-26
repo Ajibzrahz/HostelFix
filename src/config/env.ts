@@ -1,6 +1,8 @@
 import dotenv from "dotenv";
-dotenv.config();
 
+if (process.env.NODE_ENV !== "test") {
+  dotenv.config({ quiet: true });
+}
 const env = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: process.env.PORT || 5000,
@@ -18,10 +20,12 @@ const env = {
   mailtrapPass: process.env.MAILTRAP_PASS || "",
 
   brevoApiKey: process.env.BREVO_API_KEY || "",
-  emailProvider: (process.env.EMAIL_PROVIDER || "mailtrap").trim().toLocaleLowerCase(),
+  emailProvider: (process.env.EMAIL_PROVIDER || "mailtrap")
+    .trim()
+    .toLocaleLowerCase(),
 
   clientUrl: process.env.CLIENT_URL || "http://localhost:3000",
-  serverUrl: process.env.SERVER_URL || "http://localhost:5000"
+  serverUrl: process.env.SERVER_URL || "http://localhost:5000",
 };
 
 export default env;
