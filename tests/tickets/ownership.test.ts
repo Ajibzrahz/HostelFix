@@ -1,11 +1,10 @@
 import { loginAs } from "../helpers/auth";
 import { createTicket } from "../helpers/factories";
+import app from "../../src/app";
+import request from "supertest"
 
 describe("ticket ownership", () => {
   it("returns 401 when not logged in", async () => {
-    const request = (await import("supertest")).default;
-    const app = (await import("../../src/app")).default;
-
     const res = await request(app).get("/api/v1/tickets");
 
     expect(res.status).toBe(401);

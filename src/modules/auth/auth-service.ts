@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import logger from "../../common/utils/logger"; // adjust path
 
 export async function createUser(input: CreateUserInput) {
-  const { name, email, passwordHash } = input;
+  const { name, email, password } = input;
 
   const userExist = await User.findOne({ email });
   if (userExist) {
@@ -17,7 +17,7 @@ export async function createUser(input: CreateUserInput) {
   const user = await User.create({
     name,
     email,
-    passwordHash,
+    passwordHash: password,
     role: "student",
   });
 
@@ -97,19 +97,17 @@ export const resendVerificationEmail = async (email: string) => {
 
 export async function validatePassword({
   email,
-  passwordHash,
+  password,
 }: {
   email: string;
-  passwordHash: string;
+  password: string;
 }) {
   const user = await User.findOne({ email }).select("+passwordHash");
-
   if (!user) {
     return false;
   }
 
-  const isValid = await user.comparePassword(passwordHash);
-
+  const isValid = await user.comparePassword(password);
   if (!isValid) {
     return false;
   }

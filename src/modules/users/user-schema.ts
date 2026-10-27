@@ -18,7 +18,7 @@ export const createUserSchema = z.object({
         .trim()
         .min(1, "Name cannot be empty"),
 
-      passwordHash: z
+      password: z
         .string({ error: "Password is required" })
         .min(8, "Password must be at least 8 characters"),
 
@@ -26,7 +26,7 @@ export const createUserSchema = z.object({
         error: "Password confirmation is required",
       }),
     })
-    .refine((data) => data.passwordHash === data.passwordConfirmation, {
+    .refine((data) => data.password === data.passwordConfirmation, {
       message: "Passwords do not match",
       path: ["passwordConfirmation"],
     }),
@@ -49,9 +49,9 @@ export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>["query"];
 export const loginSchema = z.object({
   body: z.strictObject({
     email: z.email({ error: "Invalid email address" }).toLowerCase(),
-    passwordHash: z
+    password: z
       .string({ error: "Password is required" })
-      .min(8, "Password must be at least 8 characters"),
+      .min(1, "Password is required"),
   }),
 });
 

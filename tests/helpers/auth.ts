@@ -22,6 +22,7 @@ export async function loginAs(role: UserRole = "student") {
   const agent = request.agent(app);
   const res = await agent
     .post("/api/v1/auth/login")
+    .set("User-Agent", "HostelFix-Test")
     .send({ email: user.email, password: PASSWORD });
   if (res.status !== 200) {
     throw new Error(`Test login failed with ${res.status}: ${JSON.stringify(res.body)}`);

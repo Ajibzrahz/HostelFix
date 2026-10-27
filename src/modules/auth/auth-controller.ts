@@ -78,7 +78,7 @@ export const loginHandler = async (
 
   const session = await createUserSession(
     user._id.toString(),
-    req.get("user-agent") || "",
+    req.get("user-agent") ?? "unkown",
   );
   const sessionId = session._id.toString();
 
