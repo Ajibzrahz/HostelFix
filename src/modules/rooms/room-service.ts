@@ -19,7 +19,7 @@ export async function createRoom(hostelId: string, data: CreateRoomInput) {
   if (!(await Hostel.exists({ _id: hostelId }))) {
     throw new AppError(
       StatusCodes.NOT_FOUND,
-      "NOT_FOUND",
+      "HOSTEL_NOT_FOUND",
       "Hostel does not exist",
     );
   }

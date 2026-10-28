@@ -26,3 +26,5 @@ export async function createTicket(overrides: {
     ...overrides,
   });
 }
+
+export const createHostel = (name = "Test Hostel") => Hostel.create({ name });
