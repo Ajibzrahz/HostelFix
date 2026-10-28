@@ -5,15 +5,19 @@ import User, { type UserRole } from "../../src/modules/users/user-model";
 export const PASSWORD = "Test-password-123";
 let counter = 0;
 
-export async function createUser(role: UserRole = "student") {
+export async function createUser(
+  role: UserRole = "student",
+  options: { isEmailVerified?: boolean } = {},
+) {
   counter += 1;
+  const isEmailVerified = options.isEmailVerified ?? true;
   return User.create({
     name: `${role} ${counter}`,
     email: `${role}${counter}@test.com`,
     passwordHash: PASSWORD, // hashed by the model's save hook
     role,
-    isEmailVerified: true,
-    emailVerifiedAt: new Date(),
+    isEmailVerified,
+    emailVerifiedAt: isEmailVerified ? new Date() : null,
   });
 }
 
@@ -25,7 +29,9 @@ export async function loginAs(role: UserRole = "student") {
     .set("User-Agent", "HostelFix-Test")
     .send({ email: user.email, password: PASSWORD });
   if (res.status !== 200) {
-    throw new Error(`Test login failed with ${res.status}: ${JSON.stringify(res.body)}`);
+    throw new Error(
+      `Test login failed with ${res.status}: ${JSON.stringify(res.body)}`,
+    );
   }
   return { agent, user };
 }
