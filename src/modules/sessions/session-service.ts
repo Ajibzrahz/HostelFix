@@ -1,6 +1,6 @@
 import { QueryFilter, UpdateQuery } from "mongoose";
 import sessionModel, { sessionDocument } from "./session-model";
-import { verifyJwt, signJwt } from "../../common/utils/jwt-utils.";
+import { verifyJwt, signJwt } from "../../common/utils/jwt-utils";
 import { get, omit } from "lodash";
 import User from "../users/user-model";
 import env from "../../config/env";

@@ -11,7 +11,7 @@ import { validatePassword } from "./auth-service";
 import { StatusCodes } from "http-status-codes";
 import env from "../../config/env";
 import { createUserSession, updateSession } from "../sessions/session-service";
-import { signJwt } from "../../common/utils/jwt-utils.";
+import { signJwt } from "../../common/utils/jwt-utils";
 import { AppError } from "../../common/utils/app-error";
 
 export const createUserHandler = async (

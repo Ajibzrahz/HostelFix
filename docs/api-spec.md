@@ -165,7 +165,7 @@ Checks that the service is running. Public.
 | GET | `/api/v1/auth/verify-email` | Verify an email address | Public | 200 | 400 | Done |
 | POST | `/api/v1/auth/resend-verification` | Send a new verification link | Public | 200 | 400 | Done |
 | POST | `/api/v1/auth/login` | Log in and receive cookies | Public | 200 | 400, 401, 403 | Done |
-| POST | `/api/v1/auth/logout` | Log out and invalidate the session | Logged in | 200 | 401 | Done |
+| DELETE | `/api/v1/auth/logout` | Log out and invalidate the session | Logged in | 200 | 401 | Done |
 
 ### POST `/api/v1/auth/register`
 
@@ -209,7 +209,7 @@ Checks that the service is running. Public.
 - **401** `UNAUTHORIZED`: one message for both an unknown email and a wrong password
 - **403** `EMAIL_NOT_VERIFIED`: checked only after the password is correct
 
-### POST `/api/v1/auth/logout`
+### DELETE `/api/v1/auth/logout`
 
 - **200:** `{ "status": "success" }`. The session is marked invalid and both cookies are cleared.
 - **401** `UNAUTHORIZED` if not logged in

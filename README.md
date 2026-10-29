@@ -82,7 +82,7 @@ Base path: `/api/v1`. The full spec, with request bodies, responses and status c
 | Area | Endpoints | Status |
 | --- | --- | --- |
 | Health | `GET /health` | Done |
-| Auth | `POST /auth/register`, `GET /auth/verify-email`, `POST /auth/resend-verification`, `POST /auth/login`, `POST /auth/logout` | Done |
+| Auth | `POST /auth/register`, `GET /auth/verify-email`, `POST /auth/resend-verification`, `POST /auth/login`, `DELETE /auth/logout` | Done |
 | Tickets | `POST /tickets`, `GET /tickets`, `GET /tickets/:id`, `PATCH /tickets/:id`, `DELETE /tickets/:id` | Done |
 | Hostels | `GET /hostels`, `GET /hostels/:id`, `POST /hostels`, `PATCH /hostels/:id`, `DELETE /hostels/:id` | Done |
 | Rooms | `GET /rooms`, `GET /rooms/:roomId`, `PATCH /rooms/:roomId`, `DELETE /rooms/:roomId`, `GET` and `POST /hostels/:hostelId/rooms` | Done |

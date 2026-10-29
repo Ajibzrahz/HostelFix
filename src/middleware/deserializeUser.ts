@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { get } from "lodash";
 import env from "../config/env";
-import { verifyJwt } from "../common/utils/jwt-utils.";
+import { verifyJwt } from "../common/utils/jwt-utils";
 import {
   isSessionValid,
   reIssueAccessToken,

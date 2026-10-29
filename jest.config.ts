@@ -5,6 +5,7 @@ const config: Config = {
   testEnvironment: "node",
   roots: ["<rootDir>/tests"],
   testMatch: ["**/*.test.ts"],
+  collectCoverageFrom: ["src/**/*.ts", "!src/server.ts", "!src/seed.ts"],
   setupFiles: ["<rootDir>/tests/setup/set-env.ts"],
   setupFilesAfterEnv: ["<rootDir>/tests/setup/db.ts"],
   testTimeout: 30000,
