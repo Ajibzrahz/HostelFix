@@ -5,6 +5,15 @@ import { StatusCodes } from "http-status-codes";
 import logger from "../common/utils/logger";
 import { AppError } from "../common/utils/app-error";
 
+type BodyParserError = { status: number; type: string };
+
+const isBodyParserError = (err: unknown): err is BodyParserError =>
+  typeof err === "object" &&
+  err !== null &&
+  typeof (err as { type?: unknown }).type === "string" &&
+  (err as { type: string }).type.startsWith("entity.") &&
+  typeof (err as { status?: unknown }).status === "number";
+
 type DuplicateKeyError = { code: 11000; keyValue: Record<string, unknown> };
 
 const isDuplicateKeyError = (err: unknown): err is DuplicateKeyError =>
@@ -54,6 +63,15 @@ const errorHandler = (
     statusCode = StatusCodes.BAD_REQUEST;
     code = "INVALID_ID";
     message = `Invalid value for ${err.path}: ${err.value}`;
+  } else if (isBodyParserError(err)) {
+    const tooLarge = err.status === 413;
+    statusCode = tooLarge
+      ? StatusCodes.REQUEST_TOO_LONG
+      : StatusCodes.BAD_REQUEST;
+    code = tooLarge ? "PAYLOAD_TOO_LARGE" : "INVALID_JSON";
+    message = tooLarge
+      ? "Request body is too large"
+      : "Request body is not valid JSON";
   } else {
     logger.error(err); // only unexpected errors get logged as errors
   }

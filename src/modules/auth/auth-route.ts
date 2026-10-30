@@ -13,19 +13,30 @@ import {
   resendVerificationHandler,
   verifyEmailHandler,
 } from "./auth-controller";
+import {
+  emailLimiter,
+  loginLimiter,
+  registerLimiter,
+} from "../../middleware/rate-limit";
 import deserializeUser from "../../middleware/deserializeUser";
 import requireUser from "../../middleware/require-user";
 
 const router = Router();
 
-router.post("/register", validate(createUserSchema), createUserHandler);
+router.post(
+  "/register",
+  registerLimiter,
+  validate(createUserSchema),
+  createUserHandler,
+);
 router.get("/verify-email", validate(verifyEmailSchema), verifyEmailHandler);
 router.post(
   "/resend-verification",
+  emailLimiter,
   validate(resendVerificationSchema),
   resendVerificationHandler,
 );
-router.post("/login", validate(loginSchema), loginHandler);
+router.post("/login", loginLimiter, validate(loginSchema), loginHandler);
 router.delete("/logout", requireUser, logoutHandler);
 
 export default router;
