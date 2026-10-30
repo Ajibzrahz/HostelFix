@@ -159,7 +159,7 @@ npm test                 # run all tests
 npm run test:coverage    # run all tests and print the coverage report
 ```
 
-Tests use an in-memory MongoDB, so they never touch a real database. **The first run downloads a MongoDB binary and can take a few minutes**, and it is cached afterwards. To use a local `mongod` instead, set the `MONGOMS_SYSTEM_BINARY` environment variable to its path.
+Tests use an in-memory MongoDB, so they never touch a real database. **The first run downloads a MongoDB binary and can take a few minutes**, and it is cached afterwards. To use a local `mongod` instead, set the `MONGOMS_SYSTEM_BINARY` environment variable to its path. Each test file starts its own in-memory server, and the suite runs two files at a time so the servers can start reliably.
 
 **Current results:** 9 test suites and 108 tests, all passing. Coverage: 95.7% of statements, 84.0% of branches, 91.2% of functions and 95.6% of lines.
 
@@ -223,6 +223,7 @@ Bugs found, options considered and how each was resolved.
 | 14 | The first test run timed out | Read the output | The first run downloads a MongoDB binary, which exceeded the hook timeout. It is cached afterwards, and the README now warns about it |
 | 15 | Logout tests got a 404 | Compared the route with the tests | Logout is `DELETE`, and the tests and docs said `POST`. Corrected both |
 | 16 | `deserializeUser` ran twice on the logout route | Compared the router and the route file | It was mounted on the router and on the route. Kept only the router-level one |
+| 17 | The test suite failed intermittently with "Instance failed to start within 10000ms" | Compared the failing and passing suites | Every test file started its own database server at the same moment, and some missed the start timeout. Limited Jest to two workers and raised the server start timeout |
 
 ## Limitations
 
@@ -236,4 +237,4 @@ Bugs found, options considered and how each was resolved.
 
 ## Author
 
-Raheem Ajibona
+Ajibona Raheem
