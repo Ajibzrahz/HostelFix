@@ -13,6 +13,7 @@ beforeAll(async () => {
     binary: {
       version: "8.3.9",
     },
+    instance: {launchTimeout: 60000}
   });
   await mongoose.connect(mongo.getUri(), {
     driverInfo: {

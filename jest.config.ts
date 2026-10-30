@@ -10,6 +10,7 @@ const config: Config = {
   setupFilesAfterEnv: ["<rootDir>/tests/setup/db.ts"],
   testTimeout: 30000,
   clearMocks: true,
+  maxWorkers: 2,
 };
 
 export default config;
