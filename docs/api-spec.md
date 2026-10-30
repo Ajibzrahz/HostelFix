@@ -2,7 +2,7 @@
 
 Base path: `/api/v1` (except `/health`). All bodies are JSON. Field names are camelCase. Resource names are plural nouns.
 
-**Status legend:** *Done* = built and tested. *Planned* = designed here, not built yet (spec first, then code).
+**Status legend:** *Done* = built and covered by automated tests. *Planned* = designed here, not built yet (spec first, then code).
 
 ## Conventions
 

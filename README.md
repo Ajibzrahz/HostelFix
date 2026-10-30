@@ -4,7 +4,7 @@ A backend API for reporting and tracking hostel maintenance issues.
 
 **Live API:** https://hostelfix-l7hd.onrender.com (free host, so the first request after a quiet period can take up to a minute)
 
-> **Status:** The ticket lifecycle is built: tickets, authentication with email verification, roles and ownership checks, hostels and rooms, assignment, status changes with a student confirm-or-reopen step, comments and a duplicate-report check. Automated tests and rate limiting are planned next. Anything not marked **Done** is planned, not built.
+> **Status:** The API is functionally complete and covered by automated tests: tickets, authentication with email verification, roles and ownership checks, hostels and rooms, assignment, status changes with a student confirm-or-reopen step, comments and a duplicate-report check. Security hardening (rate limiting, a restricted CORS policy and security headers) is planned next. Anything not marked **Done** is planned, not built.
 
 ## The problem
 
@@ -37,7 +37,7 @@ Staff mark a ticket resolved, and the student who reported it confirms the fix (
 | Validation | Zod |
 | Authentication | JWT access and refresh tokens in httpOnly cookies, bcrypt password hashing, stored sessions |
 | Email | Verification emails through Brevo (production) or Mailtrap (development) |
-| Testing | Jest, Supertest, mongodb-memory-server (set up, tests planned) |
+| Testing | Jest, ts-jest, Supertest, mongodb-memory-server |
 
 **Why MongoDB:** a ticket is read together with its comments and status history, so embedding them in one document avoids joins. Users, hostels and rooms are separate collections and referenced by ID.
 
@@ -130,7 +130,7 @@ On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp`. Then o
 | `SERVER_URL` | Public URL of this API, used in verification links |
 | `CLIENT_URL` | Front-end URL (default `http://localhost:3000`) |
 
-`.env.example` lists every variable with placeholder values. Never commit your real `.env`.
+`.env.example` lists every variable with placeholder values. Never commit your real `.env`. Tests never read `.env`: they use the test values in `tests/setup/set-env.ts` and an in-memory database.
 
 ### Run
 
@@ -155,23 +155,42 @@ A Postman collection and two environments (local and live) are in [`/request`](.
 ### Test
 
 ```bash
-npm test
+npm test                 # run all tests
+npm run test:coverage    # run all tests and print the coverage report
 ```
 
-Automated tests are planned for Week 3.
+Tests use an in-memory MongoDB, so they never touch a real database. **The first run downloads a MongoDB binary and can take a few minutes**, and it is cached afterwards. To use a local `mongod` instead, set the `MONGOMS_SYSTEM_BINARY` environment variable to its path.
+
+**Current results:** 9 test suites and 108 tests, all passing. Coverage: 95.7% of statements, 84.0% of branches, 91.2% of functions and 95.6% of lines.
+
+**What is tested** (integration tests through the real Express app):
+- Authentication: registration (including the rules that block self-assigned roles), email verification and resending, login, wrong-password and unknown-email handling, unverified accounts, token refresh, logout and invalid tokens.
+- Tickets: creation, ownership (students see only their own tickets), the duplicate-report check, assignment, the status workflow (allowed, forbidden and skipped steps, confirm and reopen), comments and the status history.
+- Hostels and rooms: role rules, listing, pagination, updates, duplicate names and numbers, and the rules that stop deleting a hostel with rooms or a room with tickets.
+- The error handler: every error type is turned into the standard format, and unexpected errors never leak their details.
+
+**What is not tested, and why:**
+- Real email delivery. The email service is mocked, so the Brevo and Mailtrap code paths are checked by hand.
+- The timing of token expiry, and two requests arriving at the same instant (the duplicate check can race).
+- The seed script and server startup, which are checked by running them.
+- The live deployment, which is checked by hand after each deploy.
+
+The lowest figure is branch coverage. Most of the untested branches are rare error paths and optional fields.
 
 ## Project structure
 
 ```
-docs/          one-pager, work plan, ERD and API spec
-request/       Postman collection and environments
+docs/            one-pager, work plan, ERD, architecture diagram and API spec
+request/         Postman collection and environments
 src/
-  config/        environment and database setup
-  middleware/    validation, authentication, roles, error handler, not-found
-  modules/       auth, users, sessions, hostels, rooms, tickets
-  common/        shared utilities and services (errors, JWT, email)
-  routes/        route index
-tests/         automated tests
+  config/          environment and database setup
+  middleware/      authentication, roles, validation, error handler, not-found
+  modules/         auth, users, sessions, hostels, rooms, tickets
+  common/          route index, shared services (email) and utilities (errors, JWT)
+tests/
+  setup/           test environment and in-memory database
+  helpers/         login helper and data factories
+  auth/, tickets/, hostel-rooms/    integration tests by area
 ```
 
 ## Weekly progress
@@ -198,13 +217,19 @@ Bugs found, options considered and how each was resolved.
 | 8 | Login risked accepting any password and leaking the hash in tokens | Reviewed the login handler | `comparePassword` is async and needs `await`, and the token payload omitted the wrong field name. Awaited the comparison and put only the user ID, role and session ID in tokens |
 | 9 | Verification emails never arrived, although the app logged success | Checked the app logs, then the email provider's delivery log | The provider accepted the request, then rejected the sending because `MAIL_FROM` still held a placeholder address. Verified a real sender and set `MAIL_FROM` on the host |
 | 10 | A student could report a fault again after staff had started working on it | Reviewed the duplicate check | It only looked for `open` tickets. It now checks open, assigned and in progress tickets |
+| 11 | Tests could not connect to the in-memory database ("Missing required sub-document 'driver'") | Ran the same connection outside Jest (worked), in a bare Jest test (failed) and in another runner (worked) | The MongoDB driver (7.6 and later) failed to resolve a runtime module inside Jest's sandbox. Passed the `os` module to the driver explicitly in the test setup |
+| 12 | A test login failed with a validation error | Read the error from the test helper | The API expected the password in a field called `passwordHash`. Renamed the request field to `password` to match the spec. `passwordHash` stays the stored field |
+| 13 | Login returned 500 ("data and hash arguments required") | Logged what reached the function | A leftover `passwordHash` in the function's arguments meant the typed password was never passed. Jest does not type-check here, so only `tsc --noEmit` shows this kind of error |
+| 14 | The first test run timed out | Read the output | The first run downloads a MongoDB binary, which exceeded the hook timeout. It is cached afterwards, and the README now warns about it |
+| 15 | Logout tests got a 404 | Compared the route with the tests | Logout is `DELETE`, and the tests and docs said `POST`. Corrected both |
+| 16 | `deserializeUser` ran twice on the logout route | Compared the router and the route file | It was mounted on the router and on the route. Kept only the router-level one |
 
 ## Limitations
 
 - Two reports submitted at the same instant could both pass the duplicate check.
 - Comments cannot be edited or deleted.
 - Verification emails sent from a free personal address can land in spam, so a verified domain is better for real use.
-- There are no automated tests yet, and no rate limiting on login or email endpoints.
+- Rate limiting, a restricted CORS policy and security headers are not added yet.
 - Cookies use `sameSite=strict`, so a front end on a different site would need this relaxed.
 - The free host sleeps when idle, so the first request can be slow.
 - There is no front end. The API is used through Postman or any HTTP client.
