@@ -35,6 +35,7 @@ Every error uses this shape:
 | 400 | `VALIDATION_ERROR` | Body, query or path parameters fail validation (including an invalid ID in the path, an unknown field, or an empty update body) |
 | 400 | `INVALID_ID` | A value cannot be read as an ID (a fallback, since validation normally catches this first) |
 | 400 | `INVALID_VERIFICATION_LINK` | Email verification link is wrong or expired |
+| 400 | `INVALID_JSON` | The request body is not valid JSON |
 | 400 | `INVALID_ASSIGNEE` | A ticket is assigned to someone who is not a staff member or an admin |
 | 401 | `UNAUTHORIZED` | Not logged in, or wrong email or password at login |
 | 403 | `FORBIDDEN` | Logged in but not allowed to do this |
@@ -49,6 +50,8 @@ Every error uses this shape:
 | 409 | `TICKET_LOCKED` | A student tries to edit a ticket after work has started |
 | 409 | `DUPLICATE_TICKET` | An unresolved ticket (open, assigned or in progress) already exists for this room and category |
 | 409 | `INVALID_TRANSITION` | Illegal status change, or assigning a resolved or closed ticket |
+| 413 | `PAYLOAD_TOO_LARGE` | The request body is over 10 KB |
+| 429 | `RATE_LIMITED` | Too many requests from this address (see Rate limiting) |
 | 500 | `INTERNAL_ERROR` | Unexpected failure, generic message only |
 
 ### Pagination
@@ -66,6 +69,23 @@ List endpoints accept `page` (default 1) and `limit` (default 10, max 50) and re
 ```
 
 A `page` beyond the last page returns 200 with an empty `data` array and the correct `total`.
+
+### Rate limiting
+
+Requests are limited per client address. Over a limit, the API returns 429 `RATE_LIMITED` in the standard error format, and the standard `RateLimit-*` headers show the limit and when it resets.
+
+| Where | Limit |
+| --- | --- |
+| Login | 10 failed attempts per 15 minutes (successful logins do not count) |
+| Register | 10 per hour |
+| Resend verification | 5 per hour |
+| Whole API | 300 per 15 minutes |
+
+### Request limits and browser access
+
+- Request bodies are limited to 10 KB. A larger body returns 413 `PAYLOAD_TOO_LARGE`, and malformed JSON returns 400 `INVALID_JSON`.
+- Only the configured front-end origin receives CORS headers, with credentials. Other origins get none, so browsers block the response. Tools like Postman or curl send no origin and are not affected.
+- Standard security headers (helmet) are set on every response, and `X-Powered-By` is removed.
 
 ### Objects
 
@@ -161,10 +181,10 @@ Checks that the service is running. Public.
 
 | Method | Path | Purpose | Access | Success | Errors | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| POST | `/api/v1/auth/register` | Create an account | Public | 201 | 400, 409 | Done |
+| POST | `/api/v1/auth/register` | Create an account | Public | 201 | 400, 409, 429 | Done |
 | GET | `/api/v1/auth/verify-email` | Verify an email address | Public | 200 | 400 | Done |
-| POST | `/api/v1/auth/resend-verification` | Send a new verification link | Public | 200 | 400 | Done |
-| POST | `/api/v1/auth/login` | Log in and receive cookies | Public | 200 | 400, 401, 403 | Done |
+| POST | `/api/v1/auth/resend-verification` | Send a new verification link | Public | 200 | 400, 429 | Done |
+| POST | `/api/v1/auth/login` | Log in and receive cookies | Public | 200 | 400, 401, 403, 429 | Done |
 | DELETE | `/api/v1/auth/logout` | Log out and invalidate the session | Logged in | 200 | 401 | Done |
 
 ### POST `/api/v1/auth/register`
@@ -182,6 +202,7 @@ Checks that the service is running. Public.
 - **201:** `{ "message": "...", "user": { ... } }`. A verification link is emailed. If the email provider fails, the account is still created and the message says to request a new link.
 - **400** `VALIDATION_ERROR`
 - **409** `CONFLICT` if the email is already registered
+- **429** `RATE_LIMITED` after 10 sign-ups an hour from one address
 
 ### GET `/api/v1/auth/verify-email?email=...&token=...`
 
@@ -197,6 +218,7 @@ Checks that the service is running. Public.
 
 - **200:** always the same message, whether or not the account exists or is already verified, so the endpoint cannot be used to find out which emails are registered.
 - **400** `VALIDATION_ERROR`
+- **429** `RATE_LIMITED` after 5 requests an hour from one address
 
 ### POST `/api/v1/auth/login`
 
@@ -208,6 +230,7 @@ Checks that the service is running. Public.
 - **400** `VALIDATION_ERROR`
 - **401** `UNAUTHORIZED`: one message for both an unknown email and a wrong password
 - **403** `EMAIL_NOT_VERIFIED`: checked only after the password is correct
+- **429** `RATE_LIMITED` after 10 failed attempts in 15 minutes from one address
 
 ### DELETE `/api/v1/auth/logout`
 
@@ -389,3 +412,6 @@ Deleting a room that still has tickets returns 409 `ROOM_HAS_TICKETS`.
 - **Stable ordering:** list results sort by `createdAt` with `_id` as a tiebreaker, so a ticket cannot appear on two pages or be skipped.
 - **Unknown fields are rejected:** request bodies and query strings are validated strictly.
 - **`id` instead of `_id`:** responses expose `id` and omit MongoDB's internal `__v`.
+- **Rate limiting by address:** failed logins, sign-ups and email requests are limited, and only failed logins count toward the login limit, so normal users are never blocked. Counters are kept in memory, so they reset when the server restarts.
+- **CORS answers only for the configured origin:** other origins get no CORS headers, so browsers block them, and tools without an origin are unaffected.
+- **Request size limit:** bodies over 10 KB are refused before validation, and malformed JSON gets a clear 400 instead of a 500.

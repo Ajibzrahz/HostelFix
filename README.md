@@ -4,7 +4,7 @@ A backend API for reporting and tracking hostel maintenance issues.
 
 **Live API:** https://hostelfix-l7hd.onrender.com (free host, so the first request after a quiet period can take up to a minute)
 
-> **Status:** The API is functionally complete and covered by automated tests: tickets, authentication with email verification, roles and ownership checks, hostels and rooms, assignment, status changes with a student confirm-or-reopen step, comments and a duplicate-report check. Security hardening (rate limiting, a restricted CORS policy and security headers) is planned next. Anything not marked **Done** is planned, not built.
+> **Status:** The API is functionally complete, secured and covered by automated tests: tickets, authentication with email verification, roles and ownership checks, hostels and rooms, assignment, status changes with a student confirm-or-reopen step, comments, a duplicate-report check, rate limiting and security headers. Anything not marked **Done** is planned, not built.
 
 ## The problem
 
@@ -36,6 +36,7 @@ Staff mark a ticket resolved, and the student who reported it confirms the fix (
 | Database | MongoDB (Mongoose) |
 | Validation | Zod |
 | Authentication | JWT access and refresh tokens in httpOnly cookies, bcrypt password hashing, stored sessions |
+| Security | helmet security headers, express-rate-limit, restricted CORS, request size limit |
 | Email | Verification emails through Brevo (production) or Mailtrap (development) |
 | Testing | Jest, ts-jest, Supertest, mongodb-memory-server |
 
@@ -60,6 +61,7 @@ A layered monolith. A request passes through auth and validation middleware, the
 - Register, then verify your email through the link that is sent, then log in. Login sets `accessToken` and `refreshToken` cookies, and an expired access token is renewed from the refresh token. Logging out invalidates the session.
 - New accounts are always **students**. Staff and admin accounts come from the seed script.
 - Wrong credentials return 401, an unverified email returns 403, and acting outside your role returns 403.
+- Failed logins, sign-ups and verification emails are rate limited, and over the limit the API returns 429.
 
 | | Student | Staff | Admin |
 | --- | --- | --- | --- |
@@ -74,6 +76,17 @@ A layered monolith. A request passes through auth and validation middleware, the
 | Hostels (create, edit, delete) | no | no | yes |
 | Rooms (create, edit, delete) | no | yes | yes |
 | Read hostels and rooms | yes | yes | yes |
+
+## Security
+
+- Passwords are hashed with bcrypt, tokens live in httpOnly cookies, and sessions are stored and invalidated on logout.
+- Roles and ownership are checked on every request, and nobody can sign up as staff or an admin.
+- Every body, query string and path parameter is validated with strict schemas. Unknown fields are rejected and request bodies are limited to 10 KB.
+- Failed logins, sign-ups, verification emails and the whole API are rate limited.
+- CORS only answers for the configured front-end origin, and `helmet` sets standard security headers.
+- Unexpected errors return a generic message and are logged on the server. Stack traces never reach the client.
+
+Details, design reasons and known limitations are in [`docs/security-and-performance.md`](./docs/security-and-performance.md).
 
 ## API overview
 
@@ -128,7 +141,7 @@ On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp`. Then o
 | `MAILTRAP_HOST`, `MAILTRAP_PORT`, `MAILTRAP_USER`, `MAILTRAP_PASS` | Mailtrap SMTP settings (development) |
 | `BREVO_API_KEY` | Brevo API key (when `EMAIL_PROVIDER=brevo`) |
 | `SERVER_URL` | Public URL of this API, used in verification links |
-| `CLIENT_URL` | Front-end URL (default `http://localhost:3000`) |
+| `CLIENT_URL` | Front-end origin allowed by CORS (default `http://localhost:3000`) |
 
 `.env.example` lists every variable with placeholder values. Never commit your real `.env`. Tests never read `.env`: they use the test values in `tests/setup/set-env.ts` and an in-memory database.
 
@@ -167,12 +180,14 @@ Tests use an in-memory MongoDB, so they never touch a real database. **The first
 - Authentication: registration (including the rules that block self-assigned roles), email verification and resending, login, wrong-password and unknown-email handling, unverified accounts, token refresh, logout and invalid tokens.
 - Tickets: creation, ownership (students see only their own tickets), the duplicate-report check, assignment, the status workflow (allowed, forbidden and skipped steps, confirm and reopen), comments and the status history.
 - Hostels and rooms: role rules, listing, pagination, updates, duplicate names and numbers, and the rules that stop deleting a hostel with rooms or a room with tickets.
+- Security: security headers, the CORS rules, request size and malformed JSON handling, and rate limiting (tested on a small app with a low limit).
 - The error handler: every error type is turned into the standard format, and unexpected errors never leak their details.
 
 **What is not tested, and why:**
 - Real email delivery. The email service is mocked, so the Brevo and Mailtrap code paths are checked by hand.
 - The timing of token expiry, and two requests arriving at the same instant (the duplicate check can race).
 - The seed script and server startup, which are checked by running them.
+- The real rate limiters on the live routes. They are switched off in tests, so their limits are checked by hand.
 - The live deployment, which is checked by hand after each deploy.
 
 The lowest figure is branch coverage. Most of the untested branches are rare error paths and optional fields.
@@ -180,11 +195,11 @@ The lowest figure is branch coverage. Most of the untested branches are rare err
 ## Project structure
 
 ```
-docs/            one-pager, work plan, ERD, architecture diagram and API spec
+docs/            one-pager, work plan, ERD, architecture diagram, API spec and security notes
 request/         Postman collection and environments
 src/
   config/          environment and database setup
-  middleware/      authentication, roles, validation, error handler, not-found
+  middleware/      authentication, roles, validation, rate limiting, error handler, not-found
   modules/         auth, users, sessions, hostels, rooms, tickets
   common/          route index, shared services (email) and utilities (errors, JWT)
 tests/
@@ -224,13 +239,15 @@ Bugs found, options considered and how each was resolved.
 | 15 | Logout tests got a 404 | Compared the route with the tests | Logout is `DELETE`, and the tests and docs said `POST`. Corrected both |
 | 16 | `deserializeUser` ran twice on the logout route | Compared the router and the route file | It was mounted on the router and on the route. Kept only the router-level one |
 | 17 | The test suite failed intermittently with "Instance failed to start within 10000ms" | Compared the failing and passing suites | Every test file started its own database server at the same moment, and some missed the start timeout. Limited Jest to two workers and raised the server start timeout |
+| 18 | The CORS test failed: a response to a disallowed origin still carried CORS headers | Compared the test with the library's behaviour | A fixed `origin` string is sent on every response. Switched to a check that sends headers only for allowed origins |
+| 19 | Malformed or oversized JSON bodies returned a 500 | Sent bad bodies and read the response | The body parser's errors were not recognised by the error handler. Added a branch that returns 400 `INVALID_JSON` or 413 `PAYLOAD_TOO_LARGE` |
 
 ## Limitations
 
 - Two reports submitted at the same instant could both pass the duplicate check.
 - Comments cannot be edited or deleted.
 - Verification emails sent from a free personal address can land in spam, so a verified domain is better for real use.
-- Rate limiting, a restricted CORS policy and security headers are not added yet.
+- There is no account lockout after repeated failures, and rate limit counters are kept in memory, so they reset when the server restarts.
 - Cookies use `sameSite=strict`, so a front end on a different site would need this relaxed.
 - The free host sleeps when idle, so the first request can be slow.
 - There is no front end. The API is used through Postman or any HTTP client.
