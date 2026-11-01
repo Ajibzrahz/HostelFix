@@ -12,10 +12,13 @@ import type {
   UpdateTicketInput,
 } from "./ticket-schema";
 import { StatusCodes } from "http-status-codes";
+import {
+  canMakeTransition,
+  findTransition,
+  type Status,
+} from "./ticket-transition";
 
 export type Actor = { sub: string; role: UserRole };
-
-type Status = (typeof STATUSES)[number];
 
 const TRANSITIONS: { from: Status; to: Status; who: "staff" | "reporter" }[] = [
   { from: "assigned", to: "in_progress", who: "staff" },
@@ -226,12 +229,19 @@ export const updateTicketStatus = async (
   const from = ticket.status as Status;
   const to = update.status;
 
-  const rule = TRANSITIONS.find((t) => t.from === from && t.to === to);
+  const rule = findTransition(from, to);
   if (!rule) {
     throw new AppError(
       StatusCodes.CONFLICT,
       "INVALID_TRANSITION",
       `Cannot move a ticket from ${from} to ${to}`,
+    );
+  }
+  if (!canMakeTransition(rule.who, actor, String(ticket.reportedBy))) {
+    throw new AppError(
+      StatusCodes.FORBIDDEN,
+      "FORBIDDEN",
+      "You are not allowed to make this status change",
     );
   }
 
