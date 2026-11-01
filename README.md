@@ -46,13 +46,13 @@ Staff mark a ticket resolved, and the student who reported it confirms the fix (
 
 Entities: **User**, **Session**, **Hostel**, **Room**, **Ticket** (with embedded comments and status history).
 
-![ERD](./docs/erd.png)
+![ERD](./docs/Hostel-Fix ERD.png)
 
 The ERD source is in [`/docs`](./docs), next to the full API spec.
 
 ## Architecture
 
-![Architecture](./docs/hostelfix-architecture.png)
+![Architecture](./docs/hostelfix-architecture.html)
 
 A layered monolith. A request passes through auth and validation middleware, then routes and controllers, then services (business rules), then Mongoose models. Every error from any layer goes to one global error handler that returns the standard error format.
 
