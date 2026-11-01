@@ -8,186 +8,532 @@
   },
   "item": [
     {
-      "name": "createTicket",
-      "event": [
+      "name": "auth",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test(\"201 Created\", () => pm.response.to.have.status(201));\r\npm.environment.set(\"ticketId\", pm.response.json().id);\r\n"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "POST",
-        "header": [],
-        "body": {
-          "mode": "raw",
-          "raw": "   {\r\n     \"title\": \"Leaking tap in room B12\",\r\n     \"description\": \"The bathroom tap has been dripping since Monday.\",\r\n     \"category\": \"plumbing\",\r\n     \"room\": \"{{roomId}}\",\r\n     \"reportedBy\": \"{{studentId}}\"\r\n   }",
-          "options": {
-            "raw": {
-              "language": "json"
+          "name": "register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n   \"name\":\"Ajibona Raheem\",\r\n   \"email\": \"vnpshare@gmail.com\",\r\n   \"passwordHash\": \"@Ajibzrahz2001\",\r\n   \"passwordConfirmation\": \"@Ajibzrahz2001\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
             }
-          }
+          },
+          "response": []
         },
-        "url": {
-          "raw": "{{base_url}}/api/v1/tickets/",
-          "host": [
-            "{{base_url}}"
-          ],
-          "path": [
-            "api",
-            "v1",
-            "tickets",
-            ""
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "getTicket",
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{base_url}}/api/v1/tickets/{{ticketId}}",
-          "host": [
-            "{{base_url}}"
-          ],
-          "path": [
-            "api",
-            "v1",
-            "tickets",
-            "{{ticketId}}"
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "listTickets",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": {
-          "raw": "{{base_url}}/api/v1/tickets/",
-          "host": [
-            "{{base_url}}"
-          ],
-          "path": [
-            "api",
-            "v1",
-            "tickets",
-            ""
-          ]
-        }
-      },
-      "response": []
-    },
-    {
-      "name": "updateTicket",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "PATCH",
-        "header": [],
-        "body": {
-          "mode": "raw",
-          "raw": "{\r\n    \"priority\": \"low\"\r\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+          "name": "verify-email",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/verify-email",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "verify-email"]
             }
-          }
+          },
+          "response": []
         },
-        "url": {
-          "raw": "{{base_url}}/api/v1/tickets/{{ticketId}}",
-          "host": [
-            "{{base_url}}"
-          ],
-          "path": [
-            "api",
-            "v1",
-            "tickets",
-            "{{ticketId}}"
-          ]
+        {
+          "name": "login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n   \"email\": \"amina@example.com\",\r\n   \"password\": \"Password123!\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "logout",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            }
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
     },
     {
-      "name": "deleteTicket",
-      "event": [
+      "name": "users",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "DELETE",
-        "header": [],
-        "body": {
-          "mode": "raw",
-          "raw": "{ \"title\": \"Broken socket in B12\", \"category\": \"electrical\" }",
-          "options": {
-            "raw": {
-              "language": "json"
+          "name": "getUser",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/{{studentId}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{studentId}}"]
             }
-          }
+          },
+          "response": []
         },
-        "url": {
-          "raw": "{{base_url}}/api/v1/tickets/{{ticketId}}",
-          "host": [
-            "{{base_url}}"
-          ],
-          "path": [
-            "api",
-            "v1",
-            "tickets",
-            "{{ticketId}}"
-          ]
+        {
+          "name": "updateUser",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"name\": \"Ajibona Raheem Ibiyemi\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{studentId}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{studentId}}"]
+            }
+          },
+          "response": []
         }
-      },
-      "response": []
+      ]
+    },
+    {
+      "name": "hostel",
+      "item": [
+        {
+          "name": "create-hostel",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"name\": \"Needs block-F\"\r\n\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/hostels/",
+              "host": ["{{base_url}}"],
+              "path": ["hostels", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get-hostel",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/hostels/{{hostelId}}",
+              "host": ["{{base_url}}"],
+              "path": ["hostels", "{{hostelId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "list-hostels",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/hostels/?page=2",
+              "host": ["{{base_url}}"],
+              "path": ["hostels", ""],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "2"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update-hostel",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"name\": \"umar kabir block-A\"\r\n\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/hostels/{{hostelId}}",
+              "host": ["{{base_url}}"],
+              "path": ["hostels", "{{hostelId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete-hostel",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/hostels/{{hostelId}}",
+              "host": ["{{base_url}}"],
+              "path": ["hostels", "{{hostelId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "create-room",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"roomNumber\": \"Room-1\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/hostels/{{hostelId}}/rooms",
+              "host": ["{{base_url}}"],
+              "path": ["hostels", "{{hostelId}}", "rooms"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "list-hostel-rooms",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/hostels/{{hostelId}}/rooms",
+              "host": ["{{base_url}}"],
+              "path": ["hostels", "{{hostelId}}", "rooms"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "room",
+      "item": [
+        {
+          "name": "get-room",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rooms/{{roomId}}",
+              "host": ["{{base_url}}"],
+              "path": ["rooms", "{{roomId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "list-rooms",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rooms/",
+              "host": ["{{base_url}}"],
+              "path": ["rooms", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update-room",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"floor\": 0\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/rooms/{{roomId}}",
+              "host": ["{{base_url}}"],
+              "path": ["rooms", "{{roomId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete-room",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/rooms/{{roomId}}",
+              "host": ["{{base_url}}"],
+              "path": ["rooms", "{{roomId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "tickets",
+      "item": [
+        {
+          "name": "createTicket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"201 Created\", () => pm.response.to.have.status(201));\r\npm.environment.set(\"ticketId\", pm.response.json().id);\r\n"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "   {\r\n     \"title\": \"faulty fan\",\r\n     \"description\": \"The ceiling fan is faulty\",\r\n     \"category\": \"electrical\",\r\n     \"room\": \"{{roomId}}\"\r\n   }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/tickets/",
+              "host": ["{{base_url}}"],
+              "path": ["tickets", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "getTicket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tickets/{{ticketId}}",
+              "host": ["{{base_url}}"],
+              "path": ["tickets", "{{ticketId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "listTickets",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tickets/",
+              "host": ["{{base_url}}"],
+              "path": ["tickets", ""]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "updateTicket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"priority\": \"low\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/tickets/{{ticketId}}",
+              "host": ["{{base_url}}"],
+              "path": ["tickets", "{{ticketId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "deleteTicket",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"title\": \"Broken socket in B12\", \"category\": \"electrical\" }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/tickets/{{ticketId}}",
+              "host": ["{{base_url}}"],
+              "path": ["tickets", "{{ticketId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ticketComment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"body\": \"it has been fixed\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/tickets/{{ticketId}}/comments",
+              "host": ["{{base_url}}"],
+              "path": ["tickets", "{{ticketId}}", "comments"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "assignTicket",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"assignedTo\": \"{{staffId}}\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/tickets/{{ticketId}}/assign",
+              "host": ["{{base_url}}"],
+              "path": ["tickets", "{{ticketId}}", "assign"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "updateTicketStatus",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \r\n    \"status\": \"in_progress\" \r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/tickets/{{ticketId}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["tickets", "{{ticketId}}", "status"]
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }
