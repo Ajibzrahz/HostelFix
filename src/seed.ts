@@ -1,9 +1,10 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
-import env from "./config/env"; // adjust to match your env file
+import env from "./config/env";
 import User from "./modules/users/user-model";
 import Hostel from "./modules/hostels/hostel-model";
 import Room from "./modules/rooms/room-model";
+import Session from "./modules/sessions/session-model";
 import Ticket, { STATUSES } from "./modules/tickets/ticket-model";
 
 type Status = (typeof STATUSES)[number];
@@ -24,6 +25,7 @@ interface Sample {
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
+const PASSWORD = "Password123!"; // dummy password, dummy data only
 
 // Covers every status and priority, six rooms, and two recurring cases:
 // B12 plumbing (days 12 and 3) and A1 electrical (days 20 and 5).
@@ -177,49 +179,40 @@ const run = async () => {
 
   await mongoose.connect(env.mongoUri);
 
-  // wipe everything this script creates so it can be re-run safely
+  // wipe everything this script creates (and old sessions) so it can be re-run safely
   await Promise.all([
     User.deleteMany({}),
     Hostel.deleteMany({}),
     Room.deleteMany({}),
     Ticket.deleteMany({}),
+    Session.deleteMany({}),
   ]);
 
-  const passwordHash = await bcrypt.hash("Password123!", 10); // dummy password, dummy data only
+  // insertMany skips the model's save hook, so hash the password here
+  const passwordHash = await bcrypt.hash(PASSWORD, 10);
+  const verified = { isEmailVerified: true, emailVerifiedAt: new Date() };
 
-  const [ada, tunde, bisi, staff, admin] = await User.insertMany([
-    {
-      name: "Ada Student",
-      email: "ada@example.com",
-      passwordHash,
-      role: "student",
-    },
-    {
-      name: "Tunde Student",
-      email: "tunde@example.com",
-      passwordHash,
-      role: "student",
-    },
-    {
-      name: "Bisi Student",
-      email: "bisi@example.com",
-      passwordHash,
-      role: "student",
-    },
-    {
-      name: "Chidi Staff",
-      email: "chidi@example.com",
-      passwordHash,
-      role: "staff",
-    },
-    {
-      name: "Amina Admin",
-      email: "amina@example.com",
-      passwordHash,
-      role: "admin",
-    },
-  ]);
-  const reporters = { ada, tunde, bisi };
+  const people = [
+    { name: "Amina Admin", email: "amina@example.com", role: "admin" },
+    { name: "Chidi Okafor", email: "chidi@example.com", role: "staff" },
+    { name: "Ngozi Eze", email: "ngozi@example.com", role: "staff" },
+    { name: "Femi Adeyemi", email: "femi@example.com", role: "staff" },
+    { name: "Hauwa Bello", email: "hauwa@example.com", role: "staff" },
+    { name: "Emeka Nwosu", email: "emeka@example.com", role: "staff" },
+    { name: "Ada Student", email: "ada@example.com", role: "student" },
+    { name: "Tunde Student", email: "tunde@example.com", role: "student" },
+    { name: "Bisi Student", email: "bisi@example.com", role: "student" },
+  ] as const;
+
+  const users = await User.insertMany(
+    people.map((p) => ({ ...p, passwordHash, ...verified })),
+  );
+  const staff = users.filter((u) => u.role === "staff");
+  const students = Object.fromEntries(
+    users
+      .filter((u) => u.role === "student")
+      .map((u) => [u.email.split("@")[0], u]),
+  ) as Record<Reporter, (typeof users)[number]>;
 
   const hostel = await Hostel.create({
     name: "Unity Hall",
@@ -245,7 +238,8 @@ const run = async () => {
 
   const tickets = ordered.map((s, index) => {
     const createdAt = new Date(now - s.daysAgo * DAY);
-    const reportedBy = reporters[s.reporter]._id;
+    const reportedBy = students[s.reporter]._id;
+    const assignee = staff[index % staff.length]; // spread the work across the five staff
     const upTo = STATUSES.indexOf(s.status);
 
     // same room + same category within the previous 30 days (mirrors the service logic)
@@ -262,7 +256,7 @@ const run = async () => {
     const statusHistory = STATUSES.slice(0, upTo + 1).map((to, i) => ({
       from: i === 0 ? null : STATUSES[i - 1],
       to,
-      changedBy: i === 0 ? reportedBy : staff._id,
+      changedBy: i === 0 ? reportedBy : assignee._id,
       changedAt: new Date(createdAt.getTime() + i * 3 * HOUR),
     }));
 
@@ -274,7 +268,7 @@ const run = async () => {
       status: s.status,
       room: roomId[s.room],
       reportedBy,
-      assignedTo: upTo >= 1 ? staff._id : null,
+      assignedTo: upTo >= 1 ? assignee._id : null,
       isRecurring,
       statusHistory,
       resolvedAt:
@@ -287,20 +281,24 @@ const run = async () => {
 
   const created = await Ticket.insertMany(tickets);
 
-  console.log(`Seeded ${created.length} tickets. Use these IDs in Postman:`);
+  console.log(
+    `Seeded ${users.length} users, ${rooms.length} rooms and ${created.length} tickets.`,
+  );
+  console.log(
+    "Every account uses the dummy password in src/seed.ts and is already verified.",
+  );
   console.log("Users:");
-  [ada, tunde, bisi, staff, admin].forEach((u) =>
-    console.log(`  ${u.role.padEnd(8)} ${u.email.padEnd(20)} ${u._id}`),
+  users.forEach((u) =>
+    console.log(`  ${u.role.padEnd(8)} ${u.email.padEnd(22)} ${u._id}`),
   );
   console.log("Rooms:");
   rooms.forEach((r) => console.log(`  ${r.roomNumber.padEnd(4)} ${r._id}`));
   console.log(`Sample ticket: ${created[created.length - 1]._id}`);
-
-  await mongoose.disconnect();
-
   console.log(
     `Database: ${mongoose.connection.name} on ${mongoose.connection.host}`,
   );
+
+  await mongoose.disconnect();
 };
 
 run().catch(async (err) => {

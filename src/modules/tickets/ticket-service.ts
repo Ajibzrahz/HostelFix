@@ -263,7 +263,6 @@ export const updateTicketStatus = async (
   if (to === "closed") set.confirmedAt = new Date();
   if (from === "resolved" && to === "in_progress") set.resolvedAt = null;
 
-  // matching on the old status stops two people changing it at the same moment
   const updated = await Ticket.findOneAndUpdate(
     { _id: id, status: from },
     {
