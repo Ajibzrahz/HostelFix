@@ -7,7 +7,7 @@ const PORT = env.port;
 const startServer = async () => {
   await connectDB();
 
-  app.listen(PORT, () => {
+  app.listen(PORT, "0.0.0.0", () => {
     logger.info(`App is listening on ${PORT}`);
   });
 };

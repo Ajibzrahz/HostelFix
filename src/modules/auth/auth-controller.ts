@@ -13,6 +13,7 @@ import env from "../../config/env";
 import { createUserSession, updateSession } from "../sessions/session-service";
 import { signJwt } from "../../common/utils/jwt-utils";
 import { AppError } from "../../common/utils/app-error";
+import { cookieOptions } from "../../common/utils/cookie-option";
 
 export const createUserHandler = async (
   req: Request<{}, {}, CreateUserInput>,
@@ -94,17 +95,13 @@ export const loginHandler = async (
   );
 
   res.cookie("accessToken", accessToken, {
+    ...cookieOptions,
     maxAge: env.accessTokenTtl * 1000,
-    httpOnly: true,
-    secure: env.nodeEnv === "production",
-    sameSite: "strict",
   });
 
   res.cookie("refreshToken", refreshToken, {
+    ...cookieOptions,
     maxAge: env.refreshTokenTtl * 1000,
-    httpOnly: true,
-    secure: env.nodeEnv === "production",
-    sameSite: "strict",
   });
 
   return res.status(StatusCodes.OK).json({
@@ -118,27 +115,15 @@ export const logoutHandler = async (req: Request, res: Response) => {
 
   await updateSession({ _id: sessionId }, { valid: false });
 
-  res.clearCookie("accessToken", {
-    httpOnly: true,
-    secure: env.nodeEnv === "production",
-    sameSite: "strict",
-  });
-
-  res.clearCookie("refreshToken", {
-    httpOnly: true,
-    secure: env.nodeEnv === "production",
-    sameSite: "strict",
-  });
+  res.clearCookie("accessToken", cookieOptions);
+  res.clearCookie("refreshToken", cookieOptions);
 
   return res.status(StatusCodes.OK).json({
     status: "success",
   });
 };
 
-export const getCurrentUserHandler = async (
-  _req: Request,
-  res: Response,
-) => {
+export const getCurrentUserHandler = async (_req: Request, res: Response) => {
   const userId = res.locals.user?.sub;
 
   if (typeof userId !== "string") {

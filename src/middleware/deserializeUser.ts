@@ -6,6 +6,7 @@ import {
   isSessionValid,
   reIssueAccessToken,
 } from "../modules/sessions/session-service";
+import { cookieOptions } from "../common/utils/cookie-option";
 
 const deserializeUser = async (
   req: Request,
@@ -32,12 +33,9 @@ const deserializeUser = async (
 
       if (decoded) {
         res.cookie("accessToken", newAccessToken, {
+          ...cookieOptions,
           maxAge: env.accessTokenTtl * 1000,
-          httpOnly: true,
-          secure: env.nodeEnv === "production",
-          sameSite: "strict",
         });
-
         res.locals.user = decoded;
       }
     }
