@@ -30,12 +30,6 @@ router.get(
   validate(hostelIdSchema),
   getHostelHandler,
 );
-router.get(
-  "/:hostelId/rooms",
-  requireUser,
-  validate(listHostelRoomsSchema),
-  listHostelRoomsHandler,
-);
 router.post(
   "/",
   requireRole("admin"),
@@ -55,12 +49,19 @@ router.delete(
   deleteHostelHandler,
 );
 
-//create room
+// hostel-room
 router.post(
   "/:hostelId/rooms",
   requireRole("admin", "staff"),
   validate(createRoomSchema),
   createRoomHandler,
+);
+
+router.get(
+  "/:hostelId/rooms",
+  requireUser,
+  validate(listHostelRoomsSchema),
+  listHostelRoomsHandler,
 );
 
 export default router;

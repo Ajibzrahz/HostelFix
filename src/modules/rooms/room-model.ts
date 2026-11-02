@@ -4,7 +4,7 @@ import { HostelDocument } from "../hostels/hostel-model";
 export interface RoomDocument extends Document {
   hostel: HostelDocument["_id"];
   roomNumber: string;
-  floor: number;
+  floor?: number;
   createdAt: Date;
   updatedAt: Date;
 }
