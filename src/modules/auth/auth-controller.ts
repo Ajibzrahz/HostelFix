@@ -134,3 +134,22 @@ export const logoutHandler = async (req: Request, res: Response) => {
     status: "success",
   });
 };
+
+export const getCurrentUserHandler = async (
+  _req: Request,
+  res: Response,
+) => {
+  const userId = res.locals.user?.sub;
+
+  if (typeof userId !== "string") {
+    throw new AppError(
+      StatusCodes.UNAUTHORIZED,
+      "UNAUTHORIZED",
+      "Invalid authentication credentials",
+    );
+  }
+
+  const user = await userService.getCurrentUser(userId);
+
+  return res.status(StatusCodes.OK).json({ user });
+};

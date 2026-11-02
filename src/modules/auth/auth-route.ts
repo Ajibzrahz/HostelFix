@@ -8,6 +8,7 @@ import {
 } from "../users/user-schema";
 import {
   createUserHandler,
+  getCurrentUserHandler,
   loginHandler,
   logoutHandler,
   resendVerificationHandler,
@@ -38,5 +39,6 @@ router.post(
 );
 router.post("/login", loginLimiter, validate(loginSchema), loginHandler);
 router.delete("/logout", requireUser, logoutHandler);
+router.get("/me", requireUser, getCurrentUserHandler);
 
 export default router;

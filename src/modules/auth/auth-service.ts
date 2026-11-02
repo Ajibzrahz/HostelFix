@@ -114,3 +114,22 @@ export async function validatePassword({
 
   return user;
 }
+
+export async function getCurrentUser(userId: string) {
+  const user = await User.findById(userId).select("name email role");
+
+  if (!user) {
+    throw new AppError(
+      StatusCodes.UNAUTHORIZED,
+      "UNAUTHORIZED",
+      "Authenticated user no longer exists",
+    );
+  }
+
+  return {
+    id: user._id.toString(),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+  };
+}
