@@ -21,7 +21,7 @@ export const sendVerificationEmail = async (
   });
 
   const verificationLink =
-    `${env.serverUrl}/api/v1/auth/verify-email` +
+    `${env.clientUrl}/verify-email` +
     `?token=${token}&email=${encodeURIComponent(email)}`;
 
   const { subject, html } = verificationEmailTemplate(name, verificationLink);
