@@ -1,193 +1,233 @@
-# HostelFix API Spec
+# HostelFix API Specification
 
-Base path: `/api/v1` (except `/health`). All bodies are JSON. Field names are camelCase. Resource names are plural nouns.
+**Base path:** `/api/v1`
 
-**Status legend:** *Done* = built and covered by automated tests. *Planned* = designed here, not built yet (spec first, then code).
+**Health-check path:** `/health`
 
-## Conventions
+All request bodies use JSON unless otherwise stated. Field names use camelCase.
 
-### Authentication
+**Status legend:**
 
-- Users log in with email and password. The server sets two `httpOnly` cookies: `accessToken` (short-lived, 15 minutes by default) and `refreshToken` (7 days by default). In production the cookies are `secure`, and all cookies use `sameSite=strict`.
-- Each login creates a **session**. When the access token has expired, a valid refresh token silently issues a new access token cookie. Logging out invalidates the session, so both tokens stop working.
-- **Public endpoints:** `/health`, register, verify email, resend verification and login. Every other endpoint needs a logged-in user.
-- **Roles:** `student`, `staff`, `admin`. Registration always creates a `student`. Staff and admin accounts are created by seeding or by an admin, never through registration.
-- Passwords are hashed with bcrypt. Tokens carry only the user ID, role and session ID, never the password hash.
+- **Done:** Implemented.
+- **Planned:** Not implemented.
 
-### Error format
+---
 
-Every error uses this shape:
+## 1. Conventions
+
+### 1.1 Authentication
+
+Users authenticate using an email address and password.
+
+On successful login, the API sets two HTTP-only cookies:
+
+| Cookie         | Purpose                     | Default lifetime |
+| -------------- | --------------------------- | ---------------- |
+| `accessToken`  | Authenticates API requests  | 15 minutes       |
+| `refreshToken` | Allows access-token renewal | 7 days           |
+
+In production, cookies use the `secure` option. The current implementation uses `sameSite=strict`.
+
+Protected endpoints require a valid authenticated session.
+
+### 1.2 Roles
+
+The API supports three roles:
+
+- `student`
+- `staff`
+- `admin`
+
+New registrations always receive the `student` role. Privileged roles cannot be assigned through public registration.
+
+### 1.3 Standard error response
+
+Errors follow a consistent structure:
 
 ```json
 {
   "error": {
     "code": "VALIDATION_ERROR",
     "message": "Request validation failed",
-    "details": [{ "field": "body.title", "message": "Too small: expected string to have >=3 characters" }]
+    "details": []
   }
 }
 ```
 
-`details` appears only for validation errors. Stack traces are never returned.
+Common HTTP status codes:
 
-| HTTP | `code` | When |
-| --- | --- | --- |
-| 400 | `VALIDATION_ERROR` | Body, query or path parameters fail validation (including an invalid ID in the path, an unknown field, or an empty update body) |
-| 400 | `INVALID_ID` | A value cannot be read as an ID (a fallback, since validation normally catches this first) |
-| 400 | `INVALID_VERIFICATION_LINK` | Email verification link is wrong or expired |
-| 400 | `INVALID_JSON` | The request body is not valid JSON |
-| 400 | `INVALID_ASSIGNEE` | A ticket is assigned to someone who is not a staff member or an admin |
-| 401 | `UNAUTHORIZED` | Not logged in, or wrong email or password at login |
-| 403 | `FORBIDDEN` | Logged in but not allowed to do this |
-| 403 | `EMAIL_NOT_VERIFIED` | Correct login, but the email address has not been verified |
-| 404 | `NOT_FOUND` | Resource does not exist, or the route does not exist |
-| 404 | `ROOM_NOT_FOUND` | Referenced room does not exist |
-| 404 | `HOSTEL_NOT_FOUND` | Referenced hostel does not exist |
-| 404 | `USER_NOT_FOUND` | Referenced user does not exist |
-| 409 | `CONFLICT` | A unique value already exists (duplicate email, hostel name, or room number in a hostel) |
-| 409 | `HOSTEL_HAS_ROOMS` | Cannot delete a hostel that still has rooms |
-| 409 | `ROOM_HAS_TICKETS` | Cannot delete a room that still has tickets |
-| 409 | `TICKET_LOCKED` | A student tries to edit a ticket after work has started |
-| 409 | `DUPLICATE_TICKET` | An unresolved ticket (open, assigned or in progress) already exists for this room and category |
-| 409 | `INVALID_TRANSITION` | Illegal status change, or assigning a resolved or closed ticket |
-| 413 | `PAYLOAD_TOO_LARGE` | The request body is over 10 KB |
-| 429 | `RATE_LIMITED` | Too many requests from this address (see Rate limiting) |
-| 500 | `INTERNAL_ERROR` | Unexpected failure, generic message only |
+| Status | Meaning                                        |
+| ------ | ---------------------------------------------- |
+| 400    | Invalid request or validation failure          |
+| 401    | Authentication required or invalid credentials |
+| 403    | Authenticated user lacks permission            |
+| 404    | Resource not found                             |
+| 409    | Conflict or invalid state transition           |
+| 413    | Request body too large                         |
+| 429    | Rate limit exceeded                            |
+| 500    | Unexpected server error                        |
 
-### Pagination
+### 1.4 Pagination
 
-List endpoints accept `page` (default 1) and `limit` (default 10, max 50) and return:
+List endpoints that support pagination use:
 
-```json
-{
-  "data": [],
-  "page": 1,
-  "limit": 10,
-  "total": 42,
-  "totalPages": 5
-}
-```
+| Parameter | Type    | Default | Description                            |
+| --------- | ------- | ------- | -------------------------------------- |
+| `page`    | Integer | 1       | Page number                            |
+| `limit`   | Integer | 10      | Number of records per page; maximum 50 |
 
-A `page` beyond the last page returns 200 with an empty `data` array and the correct `total`.
+List responses use pagination metadata where supported.
 
-### Rate limiting
+### 1.5 Resource identifiers
 
-Requests are limited per client address. Over a limit, the API returns 429 `RATE_LIMITED` in the standard error format, and the standard `RateLimit-*` headers show the limit and when it resets.
-
-| Where | Limit |
-| --- | --- |
-| Login | 10 failed attempts per 15 minutes (successful logins do not count) |
-| Register | 10 per hour |
-| Resend verification | 5 per hour |
-| Whole API | 300 per 15 minutes |
-
-### Request limits and browser access
-
-- Request bodies are limited to 10 KB. A larger body returns 413 `PAYLOAD_TOO_LARGE`, and malformed JSON returns 400 `INVALID_JSON`.
-- Only the configured front-end origin receives CORS headers, with credentials. Other origins get none, so browsers block the response. Tools like Postman or curl send no origin and are not affected.
-- Standard security headers (helmet) are set on every response, and `X-Powered-By` is removed.
-
-### Objects
-
-**Ticket**
-
-```json
-{
-  "id": "6710f0c2a1b2c3d4e5f60718",
-  "title": "Leaking tap in room B12",
-  "description": "The bathroom tap has been dripping since Monday and the floor is wet.",
-  "category": "plumbing",
-  "priority": "medium",
-  "status": "open",
-  "room": "6710efa1a1b2c3d4e5f60001",
-  "reportedBy": "6710ef00a1b2c3d4e5f60002",
-  "assignedTo": null,
-  "isRecurring": false,
-  "comments": [],
-  "statusHistory": [
-    {
-      "from": null,
-      "to": "open",
-      "changedBy": "6710ef00a1b2c3d4e5f60002",
-      "changedAt": "2026-10-14T09:30:00.000Z"
-    }
-  ],
-  "createdAt": "2026-10-14T09:30:00.000Z",
-  "updatedAt": "2026-10-14T09:30:00.000Z",
-  "resolvedAt": null,
-  "confirmedAt": null
-}
-```
-
-| Field | Type | Notes |
-| --- | --- | --- |
-| `title` | string | Required, 3 to 100 characters |
-| `description` | string | Required, 10 to 1000 characters |
-| `category` | enum | `plumbing`, `electrical`, `furniture`, `other` |
-| `priority` | enum | `low`, `medium`, `high`, `urgent`. Default `medium` |
-| `status` | enum | `open`, `assigned`, `in_progress`, `resolved`, `closed`. Starts `open`, set by the server |
-| `room` | ObjectId | Must reference an existing room |
-| `reportedBy` | ObjectId | The logged-in user who created the ticket. Set by the server, never sent by the client |
-| `assignedTo` | ObjectId or null | Set only through the assign endpoint |
-| `isRecurring` | boolean | Set by the server: true if the same room already has a ticket of the same category created in the last 30 days |
-| `comments` | array | Embedded: `author`, `body` (max 500 characters), `createdAt` |
-| `statusHistory` | array | Embedded: `from`, `to`, `changedBy`, `changedAt` |
-| `resolvedAt` | date or null | Set when staff mark the ticket resolved, cleared if it is reopened |
-| `confirmedAt` | date or null | Set when the reporting student confirms the fix |
-
-**Hostel:** `id`, `name` (unique), `location`, `createdAt`, `updatedAt`.
-
-**Room:** `id`, `hostel` (ObjectId), `roomNumber` (unique within its hostel), `floor`, `createdAt`, `updatedAt`.
-
-**User (public fields):** `id`, `name`, `email`, `role`, `isEmailVerified`, `createdAt`. The password hash and verification token fields are never returned.
+Responses expose MongoDB document identifiers as `id` rather than `_id`. Internal MongoDB version fields are not exposed.
 
 ---
 
-## Access rules
+## 2. Data models
 
-| Resource | Action | Student | Staff | Admin |
-| --- | --- | --- | --- | --- |
-| Tickets | Create | yes | yes | yes |
-| Tickets | List and view | own only | all | all |
-| Tickets | Edit details | own, only while `open` | all | all |
-| Tickets | Delete | no | no | yes |
-| Tickets | Assign | no | yes | yes |
-| Tickets | Status changes | confirm or reopen own resolved ticket | up to `resolved` | all |
-| Tickets | Comment | own tickets | all | all |
-| Hostels | List and view | yes | yes | yes |
-| Hostels | Create, edit, delete | no | no | yes |
-| Rooms | List and view | yes | yes | yes |
-| Rooms | Create, edit, delete | no | yes | yes |
+### 2.1 User
 
-A student who requests another student's ticket gets 403, not 404.
+Public user fields:
+
+| Field             | Type    | Description                   |
+| ----------------- | ------- | ----------------------------- |
+| `id`              | String  | User identifier               |
+| `name`            | String  | User's name                   |
+| `email`           | String  | User's email address          |
+| `role`            | String  | `student`, `staff` or `admin` |
+| `isEmailVerified` | Boolean | Email verification status     |
+| `createdAt`       | Date    | Creation timestamp            |
+
+Password hashes and verification-token fields are never returned in public user responses.
+
+### 2.2 Hostel
+
+| Field       | Type   | Description              |
+| ----------- | ------ | ------------------------ |
+| `id`        | String | Hostel identifier        |
+| `name`      | String | Unique hostel name       |
+| `location`  | String | Optional hostel location |
+| `createdAt` | Date   | Creation timestamp       |
+| `updatedAt` | Date   | Last update timestamp    |
+
+### 2.3 Room
+
+| Field         | Type   | Description                                              |
+| ------------- | ------ | -------------------------------------------------------- |
+| `id`          | String | Room identifier                                          |
+| `hostel`      | Object | Populated hostel information in formatted room responses |
+| `hostel.id`   | String | Hostel identifier                                        |
+| `hostel.name` | String | Hostel name                                              |
+| `roomNumber`  | String | Room number                                              |
+| `floor`       | Number | Optional floor number                                    |
+| `createdAt`   | Date   | Creation timestamp                                       |
+| `updatedAt`   | Date   | Last update timestamp                                    |
+
+Room numbers must be unique within the same hostel. The same room number may exist in different hostels.
+
+### 2.4 Ticket
+
+| Field           | Type           | Description                    |
+| --------------- | -------------- | ------------------------------ |
+| `id`            | String         | Ticket identifier              |
+| `title`         | String         | Ticket title                   |
+| `description`   | String         | Issue description              |
+| `category`      | String         | Maintenance category           |
+| `priority`      | String         | Ticket priority                |
+| `status`        | String         | Current ticket status          |
+| `room`          | String         | Room identifier                |
+| `reportedBy`    | String         | Reporting user's identifier    |
+| `assignedTo`    | String or null | Assigned staff identifier      |
+| `isRecurring`   | Boolean        | Indicates a recurring issue    |
+| `comments`      | Array          | Embedded ticket comments       |
+| `statusHistory` | Array          | Embedded status-change records |
+| `createdAt`     | Date           | Creation timestamp             |
+| `updatedAt`     | Date           | Last update timestamp          |
+| `resolvedAt`    | Date or null   | Resolution timestamp           |
+| `confirmedAt`   | Date or null   | Student confirmation timestamp |
+
+Ticket categories:
+
+- `plumbing`
+- `electrical`
+- `furniture`
+- `other`
+
+Priorities:
+
+- `low`
+- `medium`
+- `high`
+- `urgent`
+
+Statuses:
+
+- `open`
+- `assigned`
+- `in_progress`
+- `resolved`
+- `closed`
 
 ---
 
-## Health
+## 3. Access rules
+
+| Resource | Action                  | Student                                | Staff          | Admin                     |
+| -------- | ----------------------- | -------------------------------------- | -------------- | ------------------------- |
+| Tickets  | Create                  | Yes                                    | Yes            | Yes                       |
+| Tickets  | List and view           | Own only                               | All            | All                       |
+| Tickets  | Edit details            | Own, while open                        | All            | All                       |
+| Tickets  | Delete                  | No                                     | No             | Yes                       |
+| Tickets  | Assign                  | No                                     | Yes            | Yes                       |
+| Tickets  | Status changes          | Confirm or reopen own resolved tickets | Up to resolved | All permitted transitions |
+| Tickets  | Comment                 | Own tickets                            | All            | All                       |
+| Hostels  | List and view           | Yes                                    | Yes            | Yes                       |
+| Hostels  | Create, edit and delete | No                                     | No             | Yes                       |
+| Rooms    | List and view           | Yes                                    | Yes            | Yes                       |
+| Rooms    | Create, edit and delete | No                                     | Yes            | Yes                       |
+
+A student requesting another student's ticket receives `403 FORBIDDEN`.
+
+---
+
+## 4. Health
 
 ### GET `/health`
 
-Checks that the service is running. Public.
+**Access:** Public
 
-- **200**
+Checks whether the application is running.
+
+**Success: 200**
 
 ```json
-{ "status": "ok", "uptime": 123.4 }
+{
+  "status": "ok",
+  "uptime": 123.4
+}
 ```
 
 ---
 
-## Auth
+## 5. Authentication
 
-| Method | Path | Purpose | Access | Success | Errors | Status |
-| --- | --- | --- | --- | --- | --- | --- |
-| POST | `/api/v1/auth/register` | Create an account | Public | 201 | 400, 409, 429 | Done |
-| GET | `/api/v1/auth/verify-email` | Verify an email address | Public | 200 | 400 | Done |
-| POST | `/api/v1/auth/resend-verification` | Send a new verification link | Public | 200 | 400, 429 | Done |
-| POST | `/api/v1/auth/login` | Log in and receive cookies | Public | 200 | 400, 401, 403, 429 | Done |
-| DELETE | `/api/v1/auth/logout` | Log out and invalidate the session | Logged in | 200 | 401 | Done |
+### Endpoint summary
 
-### POST `/api/v1/auth/register`
+| Method | Endpoint                           | Purpose                  | Access        | Success |
+| ------ | ---------------------------------- | ------------------------ | ------------- | ------- |
+| POST   | `/api/v1/auth/register`            | Register an account      | Public        | 201     |
+| GET    | `/api/v1/auth/verify-email`        | Verify email             | Public        | 200     |
+| POST   | `/api/v1/auth/resend-verification` | Resend verification link | Public        | 200     |
+| POST   | `/api/v1/auth/login`               | Log in                   | Public        | 200     |
+| GET    | `/api/v1/auth/me`                  | Retrieve current user    | Authenticated | 200     |
+| DELETE | `/api/v1/auth/logout`              | Log out                  | Authenticated | 200     |
+
+### 5.1 POST `/api/v1/auth/register`
+
+Creates a new student account.
+
+**Request body:**
 
 ```json
 {
@@ -198,220 +238,638 @@ Checks that the service is running. Public.
 }
 ```
 
-- All four fields are required. `password` must be at least 8 characters and match `passwordConfirmation`. The email is lowercased. Unknown fields (including `role`) are rejected.
-- **201:** `{ "message": "...", "user": { ... } }`. A verification link is emailed. If the email provider fails, the account is still created and the message says to request a new link.
-- **400** `VALIDATION_ERROR`
-- **409** `CONFLICT` if the email is already registered
-- **429** `RATE_LIMITED` after 10 sign-ups an hour from one address
+All fields are required. The password must be at least eight characters and match `passwordConfirmation`.
 
-### GET `/api/v1/auth/verify-email?email=...&token=...`
+The email is normalised to lowercase. Unknown fields, including `role`, are rejected.
 
-- The link in the verification email. The token is valid for 15 minutes and only the newest link works. Only a hash of the token is stored.
-- **200:** `{ "message": "Email verified successfully. You can now log in." }` (also returned if the email was already verified)
-- **400** `INVALID_VERIFICATION_LINK` for a wrong, used or expired token. The same response is returned for an unknown email.
+**Success: 201**
 
-### POST `/api/v1/auth/resend-verification`
+Returns a message and the newly created public user information. A verification email is sent.
+
+If the email provider fails, the account remains created and the user can request another verification link.
+
+**Errors:**
+
+- `400 VALIDATION_ERROR`
+- `409 CONFLICT`
+- `429 RATE_LIMITED`
+
+### 5.2 GET `/api/v1/auth/verify-email`
+
+Verifies a user's email address.
+
+**Query parameters:**
+
+| Parameter | Type   | Required |
+| --------- | ------ | -------- |
+| `email`   | String | Yes      |
+| `token`   | String | Yes      |
+
+Verification tokens expire after 15 minutes. Only a hash of the token is stored.
+
+**Success: 200**
 
 ```json
-{ "email": "ada@example.com" }
+{
+  "message": "Email verified successfully. You can now log in."
+}
 ```
 
-- **200:** always the same message, whether or not the account exists or is already verified, so the endpoint cannot be used to find out which emails are registered.
-- **400** `VALIDATION_ERROR`
-- **429** `RATE_LIMITED` after 5 requests an hour from one address
+The same success response is returned if the email has already been verified.
 
-### POST `/api/v1/auth/login`
+**Errors:**
+
+- `400 INVALID_VERIFICATION_LINK`
+
+The same error response is used for an invalid, used or expired token and an unknown email.
+
+### 5.3 POST `/api/v1/auth/resend-verification`
+
+Requests a new email verification link.
+
+**Request body:**
 
 ```json
-{ "email": "ada@example.com", "password": "at-least-8-characters" }
+{
+  "email": "ada@example.com"
+}
 ```
 
-- **200:** sets the `accessToken` and `refreshToken` cookies and returns `{ "message": "Login successful", "user": { "id", "name", "email", "role" } }`
-- **400** `VALIDATION_ERROR`
-- **401** `UNAUTHORIZED`: one message for both an unknown email and a wrong password
-- **403** `EMAIL_NOT_VERIFIED`: checked only after the password is correct
-- **429** `RATE_LIMITED` after 10 failed attempts in 15 minutes from one address
+**Success: 200**
 
-### DELETE `/api/v1/auth/logout`
+Returns a consistent message regardless of whether the account exists or is already verified.
 
-- **200:** `{ "status": "success" }`. The session is marked invalid and both cookies are cleared.
-- **401** `UNAUTHORIZED` if not logged in
+**Errors:**
+
+- `400 VALIDATION_ERROR`
+- `429 RATE_LIMITED`
+
+### 5.4 POST `/api/v1/auth/login`
+
+Authenticates a user.
+
+**Request body:**
+
+```json
+{
+  "email": "ada@example.com",
+  "password": "at-least-8-characters"
+}
+```
+
+**Success: 200**
+
+Sets the `accessToken` and `refreshToken` cookies.
+
+```json
+{
+  "message": "Login successful",
+  "user": {
+    "id": "6710ef00a1b2c3d4e5f60002",
+    "name": "Ada Student",
+    "email": "ada@example.com",
+    "role": "student"
+  }
+}
+```
+
+**Errors:**
+
+- `400 VALIDATION_ERROR`
+- `401 UNAUTHORIZED` for an unknown email or incorrect password
+- `403 EMAIL_NOT_VERIFIED`
+- `429 RATE_LIMITED`
+
+Unknown emails and incorrect passwords return the same authentication error message.
+
+### 5.5 GET `/api/v1/auth/me`
+
+Retrieves the currently authenticated user's information.
+
+**Access:** Authenticated users.
+
+**Success: 200**
+
+```json
+{
+  "user": {
+    "id": "6710ef00a1b2c3d4e5f60002",
+    "name": "Ada Student",
+    "email": "ada@example.com",
+    "role": "student"
+  }
+}
+```
+
+The user information is obtained from the authenticated session. Password hashes and private authentication fields are not returned.
+
+**Errors:**
+
+- `401 UNAUTHORIZED`
+
+### 5.6 DELETE `/api/v1/auth/logout`
+
+Logs out the authenticated user.
+
+The session is invalidated and both authentication cookies are cleared.
+
+**Success: 200**
+
+```json
+{
+  "status": "success"
+}
+```
+
+**Errors:**
+
+- `401 UNAUTHORIZED`
 
 ---
 
-## Tickets
+## 6. Tickets
 
-All ticket endpoints require a logged-in user.
+All ticket endpoints require authentication.
 
-| Method | Path | Purpose | Success | Errors | Status |
-| --- | --- | --- | --- | --- | --- |
-| POST | `/api/v1/tickets` | Create a ticket | 201 | 400, 401, 404, 409 | Done |
-| GET | `/api/v1/tickets` | List tickets | 200 | 400, 401 | Done |
-| GET | `/api/v1/tickets/:id` | Get one ticket | 200 | 400, 401, 403, 404 | Done |
-| PATCH | `/api/v1/tickets/:id` | Edit ticket details | 200 | 400, 401, 403, 404, 409 | Done |
-| DELETE | `/api/v1/tickets/:id` | Delete a ticket (admin) | 204 | 400, 401, 403, 404 | Done |
-| PATCH | `/api/v1/tickets/:id/assign` | Assign a staff member | 200 | 400, 401, 403, 404, 409 | Done |
-| PATCH | `/api/v1/tickets/:id/status` | Change status | 200 | 400, 401, 403, 404, 409 | Done |
-| POST | `/api/v1/tickets/:id/comments` | Add a comment | 201 | 400, 401, 403, 404 | Done |
+### Endpoint summary
 
-### POST `/api/v1/tickets`
+| Method | Endpoint                       | Purpose               | Access                                        |
+| ------ | ------------------------------ | --------------------- | --------------------------------------------- |
+| POST   | `/api/v1/tickets`              | Create ticket         | Authenticated                                 |
+| GET    | `/api/v1/tickets`              | List tickets          | Authenticated                                 |
+| GET    | `/api/v1/tickets/:id`          | Retrieve ticket       | Authenticated                                 |
+| PATCH  | `/api/v1/tickets/:id`          | Update ticket details | Authenticated, role and ownership rules apply |
+| DELETE | `/api/v1/tickets/:id`          | Delete ticket         | Admin                                         |
+| PATCH  | `/api/v1/tickets/:id/assign`   | Assign ticket         | Staff, admin                                  |
+| PATCH  | `/api/v1/tickets/:id/status`   | Change ticket status  | Role and ownership rules apply                |
+| POST   | `/api/v1/tickets/:id/comments` | Add comment           | Authenticated, role and ownership rules apply |
+
+### 6.1 POST `/api/v1/tickets`
+
+Creates a maintenance ticket.
+
+**Request body:**
 
 ```json
 {
   "title": "Leaking tap in room B12",
-  "description": "The bathroom tap has been dripping since Monday and the floor is wet.",
+  "description": "The bathroom tap has been dripping since Monday.",
   "category": "plumbing",
   "priority": "medium",
   "room": "6710efa1a1b2c3d4e5f60001"
 }
 ```
 
-- Required: `title`, `description`, `category`, `room`. Optional: `priority`. Unknown fields are rejected, so clients cannot set `reportedBy`, `status`, `assignedTo` or `isRecurring`.
-- **201:** the created ticket, with `status: "open"`, `reportedBy` set to the logged-in user, and the first `statusHistory` entry.
-- **404** `ROOM_NOT_FOUND`
-- **409** `DUPLICATE_TICKET` if an unresolved ticket (open, assigned or in progress) already exists for the same room and category. Once that ticket is resolved, a new report is allowed and is flagged `isRecurring` if it falls within 30 days.
+Required fields:
 
-### GET `/api/v1/tickets`
+- `title`
+- `description`
+- `category`
+- `room`
 
-Lists tickets, newest first. Students see only their own tickets, staff and admins see all.
+Optional field:
 
-| Param | Type | Notes |
-| --- | --- | --- |
-| `page` | integer | Default 1 |
-| `limit` | integer | Default 10, max 50 |
-| `status` | enum | Filter by status |
-| `priority` | enum | Filter by priority |
-| `category` | enum | Filter by category |
-| `room` | ObjectId | Filter by room |
-| `sort` | string | `createdAt` (oldest first) or `-createdAt` (newest first, default) |
+- `priority`
 
-- **200:** paginated list of ticket objects
-- **400** `VALIDATION_ERROR` for an invalid filter value, `page`, `limit` or `sort`, or an unknown query parameter
+The server sets `reportedBy`, `status`, `isRecurring` and the initial status history.
 
-### GET `/api/v1/tickets/:id`
+**Success: 201**
 
-- **200:** the ticket, including comments and status history
-- **403** `FORBIDDEN` if a student requests someone else's ticket
-- **404** `NOT_FOUND`
+Returns the created ticket with `status: "open"`.
 
-### PATCH `/api/v1/tickets/:id`
+**Errors:**
 
-- **Body:** any of `title`, `description`, `category`, `priority`. At least one is required. `status`, `room`, `reportedBy`, `assignedTo` and `isRecurring` cannot be changed here.
-- **200:** the updated ticket
-- **403** `FORBIDDEN` for a student editing someone else's ticket
-- **409** `TICKET_LOCKED` if a student edits a ticket that is no longer `open`
+- `400 VALIDATION_ERROR`
+- `401 UNAUTHORIZED`
+- `404 ROOM_NOT_FOUND`
+- `409 DUPLICATE_TICKET`
 
-### DELETE `/api/v1/tickets/:id`
+An unresolved ticket in the same room and category prevents another report from being created. Unresolved statuses are `open`, `assigned` and `in_progress`.
 
-- Admin only. Deletes the ticket permanently.
-- **204:** no body
+A new report may be created after the previous ticket is resolved. If the same room and category had a ticket within the preceding 30 days, the new ticket is marked as recurring.
 
-### PATCH `/api/v1/tickets/:id/assign`
+### 6.2 GET `/api/v1/tickets`
+
+Lists tickets.
+
+Students can only see their own tickets. Staff and admins can see all tickets.
+
+**Query parameters:**
+
+| Parameter  | Type     | Description                              |
+| ---------- | -------- | ---------------------------------------- |
+| `page`     | Integer  | Page number; default 1                   |
+| `limit`    | Integer  | Records per page; default 10, maximum 50 |
+| `status`   | Enum     | Filter by ticket status                  |
+| `priority` | Enum     | Filter by priority                       |
+| `category` | Enum     | Filter by category                       |
+| `room`     | ObjectId | Filter by room                           |
+| `sort`     | String   | `createdAt` or `-createdAt`              |
+
+The default sort order is newest first.
+
+**Success: 200**
+
+Returns a paginated list of ticket objects.
+
+**Errors:**
+
+- `400 VALIDATION_ERROR`
+- `401 UNAUTHORIZED`
+
+### 6.3 GET `/api/v1/tickets/:id`
+
+Retrieves a ticket, including its comments and status history.
+
+**Success: 200**
+
+Returns the requested ticket.
+
+**Errors:**
+
+- `400 VALIDATION_ERROR`
+- `401 UNAUTHORIZED`
+- `403 FORBIDDEN`
+- `404 NOT_FOUND`
+
+### 6.4 PATCH `/api/v1/tickets/:id`
+
+Updates ticket details.
+
+Permitted fields:
+
+- `title`
+- `description`
+- `category`
+- `priority`
+
+At least one field is required.
+
+Students may only edit their own tickets while the ticket is `open`. Staff and admins have broader editing permissions.
+
+Fields such as `status`, `room`, `reportedBy`, `assignedTo` and `isRecurring` cannot be modified through this endpoint.
+
+**Success: 200**
+
+Returns the updated ticket.
+
+**Errors:**
+
+- `400 VALIDATION_ERROR`
+- `401 UNAUTHORIZED`
+- `403 FORBIDDEN`
+- `404 NOT_FOUND`
+- `409 TICKET_LOCKED`
+
+### 6.5 DELETE `/api/v1/tickets/:id`
+
+Deletes a ticket permanently.
+
+**Access:** Admin only.
+
+**Success: 204**
+
+No response body.
+
+**Errors:**
+
+- `401 UNAUTHORIZED`
+- `403 FORBIDDEN`
+- `404 NOT_FOUND`
+
+### 6.6 PATCH `/api/v1/tickets/:id/assign`
+
+Assigns a ticket to a staff member or admin.
+
+**Request body:**
 
 ```json
-{ "assignedTo": "6710ef00a1b2c3d4e5f60003" }
+{
+  "assignedTo": "6710ef00a1b2c3d4e5f60003"
+}
 ```
 
-- Staff and admin only. `assignedTo` must be the ID of an existing staff member or admin.
-- Assigning an `open` ticket moves it to `assigned` and adds a status history entry. A ticket that is `assigned` or `in_progress` can be reassigned without a status change.
-- **200:** the updated ticket
-- **400** `VALIDATION_ERROR`, or `INVALID_ASSIGNEE` if the user is a student
-- **404** `NOT_FOUND` (ticket) or `USER_NOT_FOUND` (assignee)
-- **409** `INVALID_TRANSITION` if the ticket is `resolved` or `closed`
+Assigning an open ticket moves it to `assigned`. An already assigned or in-progress ticket can be reassigned without changing its status.
 
-### PATCH `/api/v1/tickets/:id/status`
+**Access:** Staff and admins.
+
+**Success: 200**
+
+Returns the updated ticket.
+
+**Errors:**
+
+- `400 VALIDATION_ERROR` or `INVALID_ASSIGNEE`
+- `401 UNAUTHORIZED`
+- `403 FORBIDDEN`
+- `404 NOT_FOUND` or `USER_NOT_FOUND`
+- `409 INVALID_TRANSITION`
+
+### 6.7 PATCH `/api/v1/tickets/:id/status`
+
+Changes a ticket's status.
+
+**Request body:**
 
 ```json
-{ "status": "in_progress" }
+{
+  "status": "in_progress"
+}
 ```
 
-- The client sends only the new status. The server knows the current one.
-- A move that is not in the table below returns 409 `INVALID_TRANSITION`. A listed move by someone who is not allowed to make it returns 403 `FORBIDDEN`. Admins can make any listed move.
-- Every change appends a `statusHistory` entry (`from`, `to`, `changedBy`, `changedAt`).
+The server validates the requested transition against the ticket's current status.
 
-| From | To | Who | Effect |
-| --- | --- | --- | --- |
-| `open` | `assigned` | staff, admin | Done through the assign endpoint, not this one |
-| `assigned` | `in_progress` | staff, admin | |
-| `in_progress` | `resolved` | staff, admin | Sets `resolvedAt` |
-| `resolved` | `closed` | reporting student, admin | Student confirms the fix. Sets `confirmedAt` |
-| `resolved` | `in_progress` | reporting student, admin | Student reopens it. Clears `resolvedAt` |
+| Current status | New status    | Permitted user                              |
+| -------------- | ------------- | ------------------------------------------- |
+| `open`         | `assigned`    | Staff or admin, through the assign endpoint |
+| `assigned`     | `in_progress` | Staff or admin                              |
+| `in_progress`  | `resolved`    | Staff or admin                              |
+| `resolved`     | `closed`      | Reporting student or admin                  |
+| `resolved`     | `in_progress` | Reporting student or admin                  |
 
-A `closed` ticket cannot be changed. A student who is not the reporter gets 403.
+Every successful transition adds a status history record containing `from`, `to`, `changedBy` and `changedAt`.
 
-- **200:** the updated ticket
-- **400** `VALIDATION_ERROR`
-- **403** `FORBIDDEN`
-- **404** `NOT_FOUND`
-- **409** `INVALID_TRANSITION`, also returned if someone else changed the ticket at the same moment
+When a ticket is resolved, `resolvedAt` is set. When reopened, `resolvedAt` is cleared. When confirmed and closed, `confirmedAt` is set.
 
-### POST `/api/v1/tickets/:id/comments`
+A closed ticket cannot be changed.
+
+**Success: 200**
+
+Returns the updated ticket.
+
+**Errors:**
+
+- `400 VALIDATION_ERROR`
+- `401 UNAUTHORIZED`
+- `403 FORBIDDEN`
+- `404 NOT_FOUND`
+- `409 INVALID_TRANSITION`
+
+### 6.8 POST `/api/v1/tickets/:id/comments`
+
+Adds a comment to a ticket.
+
+**Request body:**
 
 ```json
-{ "body": "The plumber came but the leak is still there." }
+{
+  "body": "The plumber came but the leak is still there."
+}
 ```
 
-- Allowed for the ticket's reporter, staff and admin. The author is the logged-in user. `body` is required, 1 to 500 characters.
-- **201:** the updated ticket
-- **400** `VALIDATION_ERROR`
-- **403** `FORBIDDEN` for a student commenting on someone else's ticket
-- **404** `NOT_FOUND`
+The comment body is required and must contain between 1 and 500 characters.
+
+The author is taken from the authenticated user.
+
+**Access:** The reporting student, staff and admins.
+
+**Success: 201**
+
+Returns the updated ticket.
+
+**Errors:**
+
+- `400 VALIDATION_ERROR`
+- `401 UNAUTHORIZED`
+- `403 FORBIDDEN`
+- `404 NOT_FOUND`
 
 ---
 
-## Hostels
+## 7. Hostels
 
-| Method | Path | Purpose | Access | Success | Errors | Status |
-| --- | --- | --- | --- | --- | --- | --- |
-| GET | `/api/v1/hostels` | List hostels (paginated) | Logged in | 200 | 400, 401 | Done |
-| GET | `/api/v1/hostels/:id` | Get one hostel | Logged in | 200 | 400, 401, 404 | Done |
-| POST | `/api/v1/hostels` | Create a hostel | Admin | 201 | 400, 401, 403, 409 | Done |
-| PATCH | `/api/v1/hostels/:id` | Update a hostel | Admin | 200 | 400, 401, 403, 404, 409 | Done |
-| DELETE | `/api/v1/hostels/:id` | Delete a hostel | Admin | 204 | 400, 401, 403, 404, 409 | Done |
-| GET | `/api/v1/hostels/:hostelId/rooms` | List a hostel's rooms (paginated) | Logged in | 200 | 400, 401, 404 | Done |
-| POST | `/api/v1/hostels/:hostelId/rooms` | Add a room to a hostel | Staff, admin | 201 | 400, 401, 403, 404, 409 | Done |
+### Endpoint summary
 
-- **Create and update body:** `name` (required on create, 2 to 100 characters) and `location` (optional, up to 200 characters). Update needs at least one field.
-- **409** `CONFLICT` for a duplicate hostel name. Deleting a hostel that still has rooms returns 409 `HOSTEL_HAS_ROOMS`.
-- **Add a room body:** `roomNumber` (required, 1 to 20 characters) and `floor` (optional integer, 0 or more). The same room number can exist in different hostels, but not twice in one hostel (409 `CONFLICT`).
+| Method | Endpoint                          | Purpose                | Access        |
+| ------ | --------------------------------- | ---------------------- | ------------- |
+| GET    | `/api/v1/hostels`                 | List hostels           | Authenticated |
+| GET    | `/api/v1/hostels/:id`             | Retrieve a hostel      | Authenticated |
+| POST   | `/api/v1/hostels`                 | Create hostel          | Admin         |
+| PATCH  | `/api/v1/hostels/:id`             | Update hostel          | Admin         |
+| DELETE | `/api/v1/hostels/:id`             | Delete hostel          | Admin         |
+| GET    | `/api/v1/hostels/:hostelId/rooms` | List rooms in a hostel | Authenticated |
+| POST   | `/api/v1/hostels/:hostelId/rooms` | Add room to a hostel   | Staff, admin  |
 
-## Rooms
+### 7.1 Hostel creation and update
 
-| Method | Path | Purpose | Access | Success | Errors | Status |
-| --- | --- | --- | --- | --- | --- | --- |
-| GET | `/api/v1/rooms` | List rooms (paginated, optional `hostel` filter) | Logged in | 200 | 400, 401 | Done |
-| GET | `/api/v1/rooms/:roomId` | Get one room | Logged in | 200 | 400, 401, 404 | Done |
-| PATCH | `/api/v1/rooms/:roomId` | Update `roomNumber` or `floor` | Staff, admin | 200 | 400, 401, 403, 404, 409 | Done |
-| DELETE | `/api/v1/rooms/:roomId` | Delete a room | Staff, admin | 204 | 400, 401, 403, 404, 409 | Done |
+**Request body:**
 
-Deleting a room that still has tickets returns 409 `ROOM_HAS_TICKETS`.
+```json
+{
+  "name": "Block A",
+  "location": "North Campus"
+}
+```
+
+For creation, `name` is required and must contain between 2 and 100 characters. `location` is optional and may contain up to 200 characters.
+
+Updates require at least one valid field.
+
+**Success:**
+
+- `201` for creation
+- `200` for update
+
+**Errors:**
+
+- `400 VALIDATION_ERROR`
+- `401 UNAUTHORIZED`
+- `403 FORBIDDEN`
+- `404 NOT_FOUND`
+- `409 CONFLICT`
+
+Hostel names must be unique. A hostel containing rooms cannot be deleted and returns `409 HOSTEL_HAS_ROOMS`.
+
+### 7.2 GET `/api/v1/hostels/:hostelId/rooms`
+
+Lists rooms belonging to a particular hostel.
+
+**Access:** Any authenticated user, including students.
+
+Supports pagination where provided by the list endpoint.
+
+**Success: 200**
+
+Returns a paginated list of rooms. Each room uses the formatted room response structure described in the Rooms section.
+
+**Errors:**
+
+- `400 VALIDATION_ERROR`
+- `401 UNAUTHORIZED`
+- `404 NOT_FOUND`
+
+### 7.3 POST `/api/v1/hostels/:hostelId/rooms`
+
+Creates a room under a hostel.
+
+**Request body:**
+
+```json
+{
+  "roomNumber": "B12",
+  "floor": 2
+}
+```
+
+`roomNumber` is required and must contain between 1 and 20 characters.
+
+`floor` is optional and must be an integer greater than or equal to zero.
+
+**Access:** Staff and admins.
+
+**Success: 201**
+
+Returns the created room using the formatted room response structure.
+
+**Errors:**
+
+- `400 VALIDATION_ERROR`
+- `401 UNAUTHORIZED`
+- `403 FORBIDDEN`
+- `404 NOT_FOUND`
+- `409 CONFLICT`
+
+Room numbers must be unique within the same hostel.
 
 ---
 
-## Design decisions
+## 8. Rooms
 
-- **Embedded comments and status history:** they are only ever read with their ticket, so embedding avoids joins and keeps a ticket's history together.
-- **Referenced users, rooms and hostels:** they exist independently of tickets and are reused across many tickets.
-- **Cookie sessions with access and refresh tokens:** short-lived access tokens limit the damage of a stolen token, and a stored session means logout takes effect immediately.
-- **Server-controlled fields:** `reportedBy`, `status`, `isRecurring` and timestamps are set by the server so clients cannot fake them.
-- **Registration always creates a student:** a role field is rejected, so nobody can sign up as an admin.
-- **One message for failed logins:** an unknown email and a wrong password look the same, so attackers cannot learn which emails exist.
-- **Email verification:** new accounts must verify their email before logging in. Only a hash of the token is stored, and it expires after 15 minutes.
-- **403 for someone else's ticket:** a student who requests another student's ticket gets 403. This confirms the ticket exists, which is acceptable here.
-- **Students cannot edit once work starts:** after a ticket leaves `open`, only staff and admins can change its details.
-- **Assigning moves the ticket to `assigned`:** one step instead of two, so a ticket cannot be assigned without its status reflecting it.
-- **Two-step closing:** staff mark a ticket `resolved`, and the reporting student confirms (`closed`) or reopens it, so tickets are not closed while the fault is still there.
-- **Status changes are checked against the current status:** the update only applies if the ticket still has the status it had when it was read, so two people cannot apply conflicting changes at once.
-- **Duplicate-report check:** creating a ticket for a room and category that already has an unresolved ticket is rejected without revealing the other ticket, so one fault does not need ten tickets. Two reports submitted at the same instant could both pass the check, which is acceptable at this scale.
-- **Staff manage rooms, only admins manage hostels:** rooms change often, hostels rarely.
-- **Parents with children cannot be deleted:** a hostel with rooms or a room with tickets returns 409 instead of leaving orphaned records.
-- **One validation step:** every route validates body, query and path parameters together with Zod, and every error goes through one global handler.
-- **Hard delete:** deleting a ticket removes it permanently. A production system might keep resolved tickets for an audit trail.
-- **`isRecurring` is decided at creation:** it is not recalculated when a ticket's category is edited.
-- **Offset pagination:** `page` and `limit` are simple and fit the expected data size. Cursor-based pagination would suit much larger data sets.
-- **Stable ordering:** list results sort by `createdAt` with `_id` as a tiebreaker, so a ticket cannot appear on two pages or be skipped.
-- **Unknown fields are rejected:** request bodies and query strings are validated strictly.
-- **`id` instead of `_id`:** responses expose `id` and omit MongoDB's internal `__v`.
-- **Rate limiting by address:** failed logins, sign-ups and email requests are limited, and only failed logins count toward the login limit, so normal users are never blocked. Counters are kept in memory, so they reset when the server restarts.
-- **CORS answers only for the configured origin:** other origins get no CORS headers, so browsers block them, and tools without an origin are unaffected.
-- **Request size limit:** bodies over 10 KB are refused before validation, and malformed JSON gets a clear 400 instead of a 500.
+### Endpoint summary
+
+| Method | Endpoint                | Purpose         | Access        |
+| ------ | ----------------------- | --------------- | ------------- |
+| GET    | `/api/v1/rooms`         | List rooms      | Authenticated |
+| GET    | `/api/v1/rooms/:roomId` | Retrieve a room | Authenticated |
+| PATCH  | `/api/v1/rooms/:roomId` | Update a room   | Staff, admin  |
+| DELETE | `/api/v1/rooms/:roomId` | Delete a room   | Staff, admin  |
+
+### 8.1 Formatted room response
+
+Room endpoints return a populated hostel object rather than exposing only the hostel ObjectId.
+
+Example:
+
+```json
+{
+  "id": "6710efa1a1b2c3d4e5f60001",
+  "hostel": {
+    "id": "6710efa1a1b2c3d4e5f60010",
+    "name": "Block A"
+  },
+  "roomNumber": "B12",
+  "floor": 2,
+  "createdAt": "2026-10-14T09:30:00.000Z",
+  "updatedAt": "2026-10-14T09:30:00.000Z"
+}
+```
+
+`floor` is omitted when no floor value has been assigned.
+
+### 8.2 GET `/api/v1/rooms`
+
+Lists rooms, with an optional hostel filter and pagination.
+
+**Access:** Any authenticated user, including students.
+
+**Success: 200**
+
+Returns a paginated list of formatted room objects.
+
+**Errors:**
+
+- `400 VALIDATION_ERROR`
+- `401 UNAUTHORIZED`
+
+### 8.3 GET `/api/v1/rooms/:roomId`
+
+Retrieves a single room.
+
+**Access:** Any authenticated user.
+
+**Success: 200**
+
+Returns the formatted room object.
+
+**Errors:**
+
+- `400 VALIDATION_ERROR`
+- `401 UNAUTHORIZED`
+- `404 NOT_FOUND`
+
+### 8.4 PATCH `/api/v1/rooms/:roomId`
+
+Updates a room.
+
+Permitted fields:
+
+| Field        | Type               | Required |
+| ------------ | ------------------ | -------- |
+| `roomNumber` | String             | No       |
+| `floor`      | Integer, minimum 0 | No       |
+
+At least one valid field must be provided.
+
+**Access:** Staff and admins.
+
+**Success: 200**
+
+Returns the updated formatted room object.
+
+**Errors:**
+
+- `400 VALIDATION_ERROR`
+- `401 UNAUTHORIZED`
+- `403 FORBIDDEN`
+- `404 NOT_FOUND`
+- `409 CONFLICT`
+
+### 8.5 DELETE `/api/v1/rooms/:roomId`
+
+Deletes a room.
+
+**Access:** Staff and admins.
+
+A room containing tickets cannot be deleted.
+
+**Success: 204**
+
+No response body.
+
+**Errors:**
+
+- `401 UNAUTHORIZED`
+- `403 FORBIDDEN`
+- `404 NOT_FOUND`
+- `409 ROOM_HAS_TICKETS`
+
+---
+
+## 9. Design decisions
+
+- **Embedded comments and status history:** These records are normally retrieved with their parent ticket, so embedding keeps related information together.
+- **Referenced users, rooms and hostels:** These entities exist independently and may be reused across multiple records.
+- **Cookie-based authentication:** Access and refresh tokens are stored in HTTP-only cookies, while stored sessions allow logout to invalidate a session.
+- **Server-controlled fields:** Ownership, status and recurring-ticket information are controlled by the backend.
+- **Student-only public registration:** Public registration cannot create staff or admin accounts.
+- **Email verification:** Accounts must verify their email before logging in.
+- **Ownership checks:** Students can only access and manage their own tickets where the permission rules allow it.
+- **Two-step ticket resolution:** Staff resolve tickets, while reporting students can confirm or reopen them.
+- **Duplicate-report prevention:** Unresolved tickets with the same room and category prevent duplicate reports.
+- **Strict validation:** Zod validates request bodies, query parameters and route parameters.
+- **Consistent error handling:** Errors are handled centrally and returned in a standard format.
+- **Offset pagination:** Page-based pagination is used for the expected application scale.
+- **Stable ordering:** List queries use creation time and an identifier as a tie-breaker.
+- **Parent deletion protection:** Hostels with rooms and rooms with tickets cannot be deleted.
+
+---
+
+## 10. Known limitations
+
+- Two simultaneous duplicate-ticket requests could pass the duplicate check.
+- Comments cannot currently be edited or deleted.
+- Rate-limit counters are stored in memory and reset when the application restarts.
+- There is no account lockout after repeated failed login attempts.
+- There is no dedicated CSRF-token implementation.
+- Offset pagination may become less efficient with very large datasets.
+- The current cookie configuration may require adjustment when the frontend and backend are deployed on different sites.

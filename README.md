@@ -2,7 +2,7 @@
 
 A backend API for reporting and tracking hostel maintenance issues.
 
-**Live API:** https://hostelfix-l7hd.onrender.com (free host, so the first request after a quiet period can take up to a minute)
+**Live API (Hostless):** https://hostel-fix.hostless.app · Health check
 
 > **Status:** The API is functionally complete, secured and covered by automated tests: tickets, authentication with email verification, roles and ownership checks, hostels and rooms, assignment, status changes with a student confirm-or-reopen step, comments, a duplicate-report check, rate limiting and security headers. Anything not marked **Done** is planned, not built.
 
@@ -95,7 +95,7 @@ Base path: `/api/v1`. The full spec, with request bodies, responses and status c
 | Area | Endpoints | Status |
 | --- | --- | --- |
 | Health | `GET /health` | Done |
-| Auth | `POST /auth/register`, `GET /auth/verify-email`, `POST /auth/resend-verification`, `POST /auth/login`, `DELETE /auth/logout` | Done |
+| Auth | `POST /auth/register`, `GET /auth/verify-email`, `POST /auth/resend-verification`, `POST /auth/login`, `GET /auth/me`, `DELETE /auth/logout` | Done |
 | Tickets | `POST /tickets`, `GET /tickets`, `GET /tickets/:id`, `PATCH /tickets/:id`, `DELETE /tickets/:id` | Done |
 | Hostels | `GET /hostels`, `GET /hostels/:id`, `POST /hostels`, `PATCH /hostels/:id`, `DELETE /hostels/:id` | Done |
 | Rooms | `GET /rooms`, `GET /rooms/:roomId`, `PATCH /rooms/:roomId`, `DELETE /rooms/:roomId`, `GET` and `POST /hostels/:hostelId/rooms` | Done |
@@ -144,13 +144,23 @@ On Windows PowerShell, use `Copy-Item .env.example .env` instead of `cp`. Then o
 | `CLIENT_URL` | Front-end origin allowed by CORS (default `http://localhost:3000`) |
 
 `.env.example` lists every variable with placeholder values. Never commit your real `.env`. Tests never read `.env`: they use the test values in `tests/setup/set-env.ts` and an in-memory database.
+### Live deployment (Hostless)
+The backend is deployed on Hostless:
+- Base URL: https://hostel-fix.hostless.app
+- Health check: GET https://hostel-fix.hostless.app/health
+- API base path: https://hostel-fix.hostless.app/api/v1
+The deployed service uses the production environment variables configured in Hostless. MONGO_URI must point to the intended MongoDB database, SERVER_URL must contain the public backend URL, and CLIENT_URL must contain the frontend origin allowed by CORS. The hosting platform supplies the PORT value at runtime.
 
 ### Run
 
 ```bash
-npm run dev     # development with auto-reload
-npm run build   # compile TypeScript to dist/
-npm start       # run the compiled build
+
+npm run dev     # development with auto-reload
+
+npm run build   # compile TypeScript to dist/
+
+npm start       # run the compiled build
+
 ```
 
 ### Seed sample data
@@ -168,13 +178,16 @@ A Postman collection and two environments (local and live) are in [`/request`](.
 ### Test
 
 ```bash
-npm test                 # run all tests
-npm run test:coverage    # run all tests and print the coverage report
+
+npm test                 # run all tests
+
+npm run test:coverage    # run all tests and print the coverage report
+
 ```
 
 Tests use an in-memory MongoDB, so they never touch a real database. **The first run downloads a MongoDB binary and can take a few minutes**, and it is cached afterwards. To use a local `mongod` instead, set the `MONGOMS_SYSTEM_BINARY` environment variable to its path. Each test file starts its own in-memory server, and the suite runs two files at a time so the servers can start reliably.
 
-**Current results:** 9 test suites and 108 tests, all passing. Coverage: 95.7% of statements, 84.0% of branches, 91.2% of functions and 95.6% of lines.
+**Current results:** 12 test suites and 174 tests, all passing.
 
 **What is tested** (integration tests through the real Express app):
 - Authentication: registration (including the rules that block self-assigned roles), email verification and resending, login, wrong-password and unknown-email handling, unverified accounts, token refresh, logout and invalid tokens.
@@ -195,17 +208,19 @@ The lowest figure is branch coverage. Most of the untested branches are rare err
 ## Project structure
 
 ```
-docs/            one-pager, work plan, ERD, architecture diagram, API spec and security notes
-request/         Postman collection and environments
+
+docs/            one-pager, work plan, ERD, architecture diagram, API spec and security notes
+request/         Postman collection and environments
 src/
-  config/          environment and database setup
-  middleware/      authentication, roles, validation, rate limiting, error handler, not-found
-  modules/         auth, users, sessions, hostels, rooms, tickets
-  common/          route index, shared services (email) and utilities (errors, JWT)
+  config/          environment and database setup
+  middleware/      authentication, roles, validation, rate limiting, error handler, not-found
+  modules/         auth, users, sessions, hostels, rooms, tickets
+  common/          route index, shared services (email) and utilities (errors, JWT)
 tests/
-  setup/           test environment and in-memory database
-  helpers/         login helper and data factories
-  auth/, tickets/, hostel-rooms/    integration tests by area
+  setup/           test environment and in-memory database
+  helpers/         login helper and data factories
+  auth/, tickets/, hostel-rooms/    integration tests by area
+
 ```
 
 ## Weekly progress
@@ -248,9 +263,10 @@ Bugs found, options considered and how each was resolved.
 - Comments cannot be edited or deleted.
 - Verification emails sent from a free personal address can land in spam, so a verified domain is better for real use.
 - There is no account lockout after repeated failures, and rate limit counters are kept in memory, so they reset when the server restarts.
-- Cookies use `sameSite=strict`, so a front end on a different site would need this relaxed.
-- The free host sleeps when idle, so the first request can be slow.
-- There is no front end. The API is used through Postman or any HTTP client.
+
+- The backend is deployed on Hostless. The live health check is available at https://hostel-fix.hostless.app/health. Response times depend on the hosting plan and available resources.
+
+- The backend is a standalone API and can be accessed through the separate HostelFix frontend, Postman, or any HTTP client.
 
 ## Author
 

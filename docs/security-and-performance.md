@@ -1,66 +1,107 @@
-# Security and performance notes
+# Security and Performance
 
-What HostelFix does to stay safe and fast, what it does not do, and why.
+This document explains what HostelFix does to stay secure and efficient, the limitations that remain, and the reasons behind its design choices.
 
 ## Security
 
-### Secrets
+### Secrets and Environment Variables
 
-- Every secret (database URI, token secrets, email API key) comes from environment variables. The real `.env` is ignored by git, and `.env.example` holds placeholders only.
-- Tests never read `.env`. They use fixed test values and an in-memory database, so a test run can never touch real data.
+- Every secret, including the database URI, token secrets, and email API keys, is supplied through environment variables.
+- The actual `.env` file is excluded from Git, while `.env.example` contains placeholders for the required configuration.
+- Tests use fixed test values and an in-memory database rather than reading the real `.env` file. This prevents test runs from accidentally connecting to the production database.
 
-### Passwords and accounts
+### Passwords and Accounts
 
-- Passwords are hashed with bcrypt before they are stored. The hash is hidden from queries by default and never appears in a response or a token.
-- Registration always creates a student. A role in the request is rejected, so nobody can sign up as staff or an admin.
-- A wrong password and an unknown email return the same 401 message, so the API does not reveal which emails are registered. The same goes for the resend-verification endpoint.
-- New accounts must verify their email. The verification token is random, only its hash is stored, and it expires after 15 minutes.
+- Passwords are hashed with bcrypt before they are stored. Password hashes are excluded from queries by default and are never included in API responses or JWT payloads.
+- Registration always creates a student account. A role supplied in the registration request is rejected, preventing users from registering themselves as staff or administrators.
+- An incorrect password and an unknown email address return the same 401 response, preventing the API from revealing whether an email address is registered. The resend-verification endpoint follows the same principle.
+- New accounts must verify their email address. Verification tokens are randomly generated, only their hashes are stored, and they expire after 15 minutes.
 
-### Sessions and tokens
+### Sessions and Tokens
 
-- Login sets a short-lived access token and a longer-lived refresh token in `httpOnly` cookies, which JavaScript on a page cannot read. In production the cookies are also `secure`, and all cookies use `sameSite=strict`.
-- Every login creates a stored session. Logging out invalidates it, so both tokens stop working straight away.
-- Tokens carry only the user ID, role and session ID.
+- Login sets a short-lived access token and a longer-lived refresh token in `httpOnly` cookies, which JavaScript running in the browser cannot read.
+- In production, cookies are also marked `secure`. The current cookie configuration uses `sameSite: "strict"`.
+- Every login creates a stored session. Logging out invalidates the session and clears the authentication cookies, preventing the invalidated session's tokens from being used.
+- Tokens contain only the user ID, role, and session ID.
 
 ### Authorisation
 
-- Every route except health, registration, verification and login needs a logged-in user.
-- Roles and ownership are checked in the service layer on every request. Students see and change only their own tickets, and some actions are limited to staff or admins.
-- Someone else's ticket returns 403, and the rules are covered by automated tests.
+- Protected routes require an authenticated user. Public routes include health checks, registration, email verification, login, resend verification, and password recovery.
+- Role-based permissions and resource ownership are checked in the service layer.
+- Students can access and manage only their own tickets, while certain operations are restricted to staff or administrators.
+- Attempts to access another user's ticket return a 403 Forbidden response.
+- Authorisation and ownership rules are covered by automated tests.
 
-### Input and error handling
+### Input Validation and Error Handling
 
-- Every request body, query string and path parameter is validated with strict Zod schemas. Unknown fields are rejected, and values must be the expected type, which also blocks MongoDB operator injection such as `{ "$ne": null }`.
-- Request bodies are limited to 10 KB. Malformed JSON and oversized bodies return clean 400 and 413 errors.
-- One global error handler returns a standard format. Unexpected errors return a generic message and are logged on the server, and stack traces and internal details never reach the client.
+- Request bodies, query strings, and path parameters are validated using strict Zod schemas.
+- Unknown fields are rejected, and values must match their expected types. This helps prevent unexpected input, including MongoDB operator injection attempts such as `{ "$ne": null }`.
+- Request bodies are limited to 10 KB.
+- Malformed JSON and oversized request bodies return controlled 400 and 413 responses respectively.
+- A global error handler provides a consistent error response format.
+- Unexpected errors are logged on the server, while clients receive generic messages. Stack traces and internal implementation details are not exposed through API responses.
 
-### Network protections
+### Network Protections
 
-- **Rate limiting:** failed logins (10 per 15 minutes per address), sign-ups (10 per hour), verification emails (5 per hour) and the whole API (300 per 15 minutes) are limited. Over the limit, the API returns 429 `RATE_LIMITED`.
-- **CORS:** only the configured front-end origin (`CLIENT_URL`) is allowed, with credentials. Other origins receive no CORS headers, so browsers block them.
-- **Security headers:** `helmet` sets the standard headers, and the `X-Powered-By` header is removed.
-- **Proxy:** the API trusts one proxy hop, so rate limits apply to the real client address behind the host's load balancer.
+- **Rate limiting:** Failed login attempts are limited to 10 per 15 minutes per address, sign-ups to 10 per hour, verification emails to 5 per hour, and general API requests to 300 per 15 minutes. Requests exceeding the configured limits receive a 429 `RATE_LIMITED` response.
+- **CORS:** The API allows configured frontend origins supplied through `CLIENT_URL`, with credentials enabled. Browsers block frontend JavaScript from accessing responses that do not have the appropriate CORS headers.
+- **Security headers:** Helmet sets standard HTTP security headers, and the `X-Powered-By` header is removed.
+- **Proxy configuration:** The API trusts one proxy hop so that client IP addresses can be identified correctly when requests pass through the hosting provider's load balancer.
 
-### Known limitations
+### Known Security Limitations
 
-- No account lockout after repeated failures. The rate limit slows attacks but does not lock accounts.
-- Rate limit counters are kept in memory, so they reset when the server restarts and are not shared between instances.
-- No CSRF tokens. `sameSite=strict` cookies are the protection, and a front end on a different site would need a different design.
-- No audit log of who did what, apart from the status history on tickets.
-- Dependencies are not scanned automatically. Run `npm audit` before each release.
-- Verification emails from a free personal sender address can land in spam. A verified domain is better for real use.
+- **No account lockout:** Repeated failed login attempts do not permanently lock an account. Rate limiting slows repeated attempts but does not replace an account-lockout mechanism.
+- **In-memory rate limits:** Rate-limit counters are stored in memory. They reset when the server restarts and are not shared between multiple application instances.
+- **No CSRF tokens:** The current implementation does not use dedicated CSRF tokens. It relies on `sameSite: "strict"` cookies as an additional browser-level protection. If the frontend and backend are deployed on different sites and the cookie policy must change, the authentication design should be reviewed and additional CSRF protection considered.
+- **No general audit log:** The application does not maintain a complete audit trail of user actions. Ticket status history provides a record of status changes, but it is not a replacement for a system-wide audit log.
+- **No automatic dependency scanning:** Dependencies are not automatically scanned for vulnerabilities. Run `npm audit` and review the results before releases.
+- **Email deliverability:** Verification emails sent using a free personal sender address may be delivered to spam folders. A verified sending domain is recommended for production use.
 
 ## Performance
 
-- **Pagination everywhere:** every list endpoint takes `page` and `limit` (default 10, maximum 50), so a response never returns an unbounded list.
-- **Stable ordering:** list results sort by `createdAt` with `_id` as a tiebreaker, so pages stay consistent.
-- **Indexes** on the fields the API filters and sorts by: ticket `status`, `room` with `category` and `createdAt` (also used by the duplicate and recurring checks), `reportedBy` and `createdAt`; unique indexes on user email, hostel name and a room number within a hostel.
-- **Parallel queries:** list endpoints fetch the page and the total count at the same time.
-- **Limits on input size:** the 10 KB body limit and field length limits keep requests cheap to process.
+### Pagination
 
-### Known limitations
+- List endpoints use pagination through `page` and `limit` query parameters.
+- The default page size is 10, and the maximum is 50.
+- Pagination prevents list endpoints from returning unbounded amounts of data in a single response.
 
-- Offset pagination (`skip`) slows down on very deep pages. Cursor-based pagination would suit much larger data sets.
-- The free host sleeps when idle, so the first request after a quiet period can take up to a minute.
-- No caching. The data changes often and the expected load is small.
-- Nothing has been load tested, so the figures above are design choices and not measured results.
+### Stable Ordering
+
+- List results are ordered by `createdAt`, with `_id` used as a tie-breaker.
+- This provides a consistent ordering when records share the same creation timestamp and helps keep paginated results predictable.
+
+### Database Indexes
+
+Indexes are defined for fields commonly used in filtering, sorting, and lookup operations, including:
+
+- Ticket `status`.
+- Ticket `room`, `category`, and `createdAt`, which are also used by duplicate and recurring-ticket checks.
+- Ticket `reportedBy` and `createdAt`.
+- Unique user email addresses.
+- Unique hostel names.
+- Room numbers within a hostel.
+
+These indexes help MongoDB locate relevant records without unnecessarily scanning entire collections.
+
+### Parallel Queries
+
+- List endpoints retrieve the requested page of records and the total record count in parallel.
+- This avoids waiting for one database operation to finish before starting the other.
+
+### Request Size and Validation Limits
+
+- The 10 KB request-body limit prevents unnecessarily large request payloads.
+- Field-length and schema validation limits help keep incoming requests predictable and reduce unnecessary processing.
+
+### Known Performance Limitations
+
+- **Offset pagination:** The current pagination approach uses `skip`, which can become slower when navigating very deep pages. Cursor-based pagination would be more suitable for significantly larger datasets.
+- **Hosting performance:** Response times depend on the hosting provider and allocated resources. Small or scaled-down instances may experience slower responses after periods of inactivity. Actual cold-start behaviour should be measured on the deployed Hostless service rather than assumed.
+- **No caching:** The application does not currently implement a caching layer. Since the expected workload is relatively small and application data changes frequently, database queries are used directly.
+- **No load testing:** The application has not undergone formal load testing. The configured limits and performance choices are design decisions, not guarantees based on measured production traffic.
+
+## Summary
+
+HostelFix uses password hashing, session-backed JWT authentication, input validation, role and ownership checks, rate limiting, security headers, pagination, and database indexes to provide a safer and more efficient backend.
+
+However, it is still an evolving project. Distributed rate limiting, dedicated CSRF protection where required, audit logging, automated dependency scanning, caching, cursor-based pagination, and formal load testing are potential areas for future improvement.
